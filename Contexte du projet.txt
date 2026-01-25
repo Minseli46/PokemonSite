@@ -1,0 +1,209 @@
+Contexte du projet :
+en tant que dev Tu vas créer une application web full-stack de Pokédex en utilisant React  + TypeScript + Vite + Tailwind CSS pour le front-end, et Node.js + Express + Prisma + PostgreSQL pour le back-end. L’objectif est de permettre aux utilisateurs de consulter une liste paginée de Pokémon (avec recherche par nom/type et filtre par génération), d’afficher les détails d’un Pokémon (stats, évolutions, faiblesses/résistances), de sélectionner des Pokémon pour former une équipe, et de les visualiser 3D (grâce à Three.js). Le projet inclut aussi des fonctionnalités comme un quiz Pokémon, une comparaison de stats, et un mode sombre/clair. Le back-end doit exposer une API RESTful pour interagir avec la base de données PostgreSQL (via Prisma) et gérer l’authentification avec Firebase Auth. Les données des Pokémon proviennent de PokéAPI, et les modèles 3D sont chargés depuis Poké3D. Le projet doit être modulaire, avec une architecture claire : /client pour le front-end (composants, pages, hooks, utils) et /server pour le back-end (contrôleurs, routes, services, modèles Prisma).
+
+1. Structure du Projet
+Le projet doit suivre cette architecture modulaire :
+/pokedex-app
+├── /client (Front-end)
+│   ├── /public
+│   ├── /src
+│   │   ├── /components (PokémonCard.tsx, PokémonList.tsx, 3DViewer.tsx, Team.tsx, Quiz.tsx)
+│   │   ├── /pages (Home.tsx, PokémonDetails.tsx, Team.tsx, Quiz.tsx)
+│   │   ├── /hooks (usePokémonAPI.ts, use3DModel.ts, useTeam.ts)
+│   │   ├── /utils (api.ts, helpers.ts, types.ts)
+│   │   ├── /styles (Tailwind CSS)
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── vite.config.ts
+│
+├── /server (Back-end)
+│   ├── /prisma (schema.prisma, migrations)
+│   ├── /src
+│   │   ├── /controllers (pokemonController.ts, teamController.ts, quizController.ts)
+│   │   ├── /routes (pokemonRoutes.ts, teamRoutes.ts, quizRoutes.ts)
+│   │   ├── /services (pokeAPIService.ts, databaseService.ts)
+│   │   ├── /models (Prisma)
+│   │   ├── /middlewares (authMiddleware.ts, errorMiddleware.ts)
+│   │   ├── app.ts
+│   │   └── server.ts
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── README.md
+└── .gitignore
+
+Voici une version modifiée et optimisée de ton prompt pour GitHub Copilot (en mode Agent). J’ai :
+
+Supprimé les éléments redondants ou trop vagues pour éviter les ambiguïtés.
+Ajouté des précisions techniques pour que Copilot puisse générer un code fonctionnel et structuré.
+Séparé clairement le front-end et le back-end pour une meilleure organisation.
+Ajouté des instructions pour la base de données et la connexion entre les deux parties.
+Précisé les dépendances et outils à utiliser.
+
+Prompt optimisé pour GitHub Copilot (mode Agent)
+Crée une application web full-stack de Pokédex avec les technologies suivantes :
+
+Front-end : React 18 + TypeScript + Vite + Tailwind CSS.
+Back-end : Node.js 20 + Express + Prisma (pour la base de données).
+Base de données : PostgreSQL (via Prisma ORM).
+3D : Three.js pour l'affichage des modèles 3D des Pokémon.
+Tests : Jest + React Testing Library + Supertest (pour les tests API).
+
+1. Structure du Projet
+Le projet doit suivre cette architecture modulaire :
+Copier
+
+/pokedex-app
+├── /client (Front-end)
+│   ├── /public
+│   ├── /src
+│   │   ├── /components (PokémonCard.tsx, PokémonList.tsx, 3DViewer.tsx, Team.tsx, Quiz.tsx)
+│   │   ├── /pages (Home.tsx, PokémonDetails.tsx, Team.tsx, Quiz.tsx)
+│   │   ├── /hooks (usePokémonAPI.ts, use3DModel.ts, useTeam.ts)
+│   │   ├── /utils (api.ts, helpers.ts, types.ts)
+│   │   ├── /styles (Tailwind CSS)
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── vite.config.ts
+│
+├── /server (Back-end)
+│   ├── /prisma (schema.prisma, migrations)
+│   ├── /src
+│   │   ├── /controllers (pokemonController.ts, teamController.ts, quizController.ts)
+│   │   ├── /routes (pokemonRoutes.ts, teamRoutes.ts, quizRoutes.ts)
+│   │   ├── /services (pokeAPIService.ts, databaseService.ts)
+│   │   ├── /models (Prisma)
+│   │   ├── /middlewares (authMiddleware.ts, errorMiddleware.ts)
+│   │   ├── app.ts
+│   │   └── server.ts
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── README.md
+└── .gitignore
+
+
+2. Fonctionnalités Obligatoires
+Front-end
+
+
+Liste des Pokémon :
+
+Utilise l’API PokéAPI pour récupérer une liste paginée (20 Pokémon par page).
+Ajoute une barre de recherche par nom ou type.
+Filtre par génération (Génération 1 à 8).
+Affiche pour chaque Pokémon : nom, image (sprite), types.
+
+
+Détails d’un Pokémon :
+
+Page dédiée avec :
+
+Image (sprite + artwork officiel).
+Statistiques (HP, Attaque, Défense, etc.).
+Évolution(s) (si applicable, avec liens cliquables).
+Section "Faiblesses/résistances" basée sur ses types.
+
+
+
+Sélection et Affichage 3D :
+
+Permets de sélectionner des Pokémon en cliquant sur leur carte.
+Affiche les Pokémon sélectionnés dans une section "Mon Équipe".
+Utilise Three.js pour afficher les modèles 3D (source : Poké3D).
+Ajoute un bouton pour basculer entre 2D (sprites) et 3D.
+
+
+Fonctionnalités supplémentaires :
+
+Comparaison de Pokémon : Page pour comparer les stats de 2 Pokémon côte à côte.
+Quiz Pokémon : Mini-jeu pour deviner un Pokémon à partir de son ombre ou de ses stats (utilise Open Trivia Database).
+Mode sombre/clair : Géré avec Tailwind CSS.
+
+Back-end
+
+
+API RESTful avec Express :
+
+Endpoints :
+
+GET /api/pokemons : Liste paginée des Pokémon.
+GET /api/pokemons/:id : Détails d’un Pokémon.
+GET /api/pokemons/search?name=... : Recherche par nom.
+GET /api/pokemons/filter?generation=... : Filtre par génération.
+POST /api/teams : Sauvegarde une équipe de Pokémon (utilisateur).
+GET /api/quiz : Génère un quiz aléatoire.
+
+
+
+- Base de données :
+
+Utilise PostgreSQL avec Prisma ORM.
+Modèles :
+
+Pokemon (id, name, types, sprite, stats, evolutions).
+Team (id, userId, pokemons).
+Quiz (id, question, answer, difficulty).
+
+
+
+- Intégration des API externes :
+
+FunTranslations : Traduction humoristique des noms.
+IP Geolocation API : Événements locaux (optionnel).
+
+
+- Authentification :
+
+Utilise Firebase Auth pour gérer les utilisateurs et sauvegarder leurs équipes.
+
+
+3. Instructions Techniques
+Front-end
+
+Utilise Vite pour le bundling.
+Gère l’état global avec Redux Toolkit ou Zustand.
+Pour les requêtes API, utilise Axios ou React Query.
+Pour les modèles 3D, utilise Three.js + GLTFLoader pour charger les fichiers .glb.
+Back-end
+
+Utilise Express avec TypeScript.
+Configure Prisma pour interagir avec PostgreSQL.
+Ajoute des middlewares pour la gestion des erreurs et l’authentification.
+Utilise CORS pour autoriser les requêtes depuis le front-end.
+
+-  Base de données
+
+Schéma Prisma :
+prisma
+
+model Pokemon {
+  id       Int      @id @default(autoincrement())
+  name     String
+  types    String[]
+  sprite   String
+  stats    Json
+  evolutions Json?
+}
+
+model Team {
+  id       Int      @id @default(autoincrement())
+  userId   String
+  pokemons Int[]    // IDs des Pokémon
+  User     User     @relation(fields: [userId], references: [id])
+}
+
+model User {
+  id       String   @id
+  email    String   @unique
+  teams    Team[]
+}
+
+
+
+
+
