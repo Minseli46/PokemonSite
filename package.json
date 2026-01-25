@@ -1,0 +1,20 @@
+{
+  "name": "pokedex-fullstack",
+  "version": "2.0.0",
+  "description": "Application Pokédex Full-Stack - Next.js 16 + Express + PostgreSQL",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev -- -p 3001",
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "install:backend": "cd backend && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "start": "npm run dev"
+  },
+  "keywords": ["pokemon", "pokedex", "nextjs", "express", "typescript"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
