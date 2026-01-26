@@ -1,12 +1,16 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Link from 'next/link'
 import { Header } from '@/components/layout/header'
 import { SearchBar } from '@/components/pokemon/search-bar'
 import { FilterPanel } from '@/components/pokemon/filter-panel'
 import { PokemonGrid } from '@/components/pokemon/pokemon-grid'
 import { TeamPreview } from '@/components/pokemon/team-preview'
 import { usePokemonByType } from '@/hooks/use-pokemon'
+import { useTeam } from '@/hooks/use-team'
+import { AlertCircle, Users } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -14,6 +18,9 @@ export default function HomePage() {
   const [selectedGeneration, setSelectedGeneration] = useState<number | null>(null)
 
   const { pokemonList: typePokemon, isLoading: typeLoading } = usePokemonByType(selectedType || '')
+  const { currentTeamId, getTeam } = useTeam()
+  
+  const currentTeam = currentTeamId ? getTeam(currentTeamId) : null
 
   const filteredByType = useMemo(() => {
     if (!selectedType || typeLoading) return undefined
@@ -25,6 +32,41 @@ export default function HomePage() {
       <Header />
       
       <main className="container mx-auto px-4 py-8">
+        {/* Indicateur équipe active */}
+        {!currentTeamId && (
+          <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                Aucune équipe sélectionnée. Créez ou sélectionnez une équipe pour ajouter des Pokémon.
+              </p>
+            </div>
+            <Link href="/teams">
+              <Button variant="outline" size="sm" className="gap-2">
+                <Users className="h-4 w-4" />
+                Gérer mes équipes
+              </Button>
+            </Link>
+          </div>
+        )}
+        
+        {currentTeam && (
+          <div className="mb-6 p-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Users className="h-5 w-5 text-primary" />
+              <p className="text-sm">
+                Équipe active : <strong>{currentTeam.name}</strong> ({currentTeam.pokemon.length}/6 Pokémon)
+              </p>
+            </div>
+            <Link href="/teams">
+              <Button variant="outline" size="sm" className="gap-2">
+                <Users className="h-4 w-4" />
+                Gérer mes équipes
+              </Button>
+            </Link>
+          </div>
+        )}
+        
         {/* Hero Section */}
         <section className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 text-balance">

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { POKEAPI_BASE_URL, API_TIMEOUT } from '../constants';
+import { POKEAPI_BASE_URL } from '../constants';
 import { PokemonType, PokemonStat, PokemonAbility } from '../types';
 
 export interface EvolutionChain {

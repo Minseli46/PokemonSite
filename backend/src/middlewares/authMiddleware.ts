@@ -5,8 +5,8 @@ import { Request, Response, NextFunction } from 'express';
  * Pour l'instant, laisse passer toutes les requêtes
  */
 export const optionalAuth = (
-  req: Request,
-  res: Response,
+  _req: Request,
+  _res: Response,
   next: NextFunction
 ) => {
   // Pas d'authentification pour l'instant

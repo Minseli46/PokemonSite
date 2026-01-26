@@ -53,8 +53,10 @@ export const getPokemonList = async (req: Request, res: Response, next: NextFunc
       next: apiData.next,
       previous: apiData.previous,
     });
+    return;
   } catch (error) {
     next(error);
+    return;
   }
 };
 
@@ -149,8 +151,10 @@ export const searchPokemon = async (req: Request, res: Response, next: NextFunct
     }
 
     res.json({ results });
+    return;
   } catch (error) {
     next(error);
+    return;
   }
 };
 
@@ -174,8 +178,10 @@ export const filterByGeneration = async (req: Request, res: Response, next: Next
     const results = await databaseService.getPokemonByGeneration(gen);
 
     res.json({ results });
+    return;
   } catch (error) {
     next(error);
+    return;
   }
 };
 
@@ -266,8 +272,10 @@ export const comparePokemon = async (req: Request, res: Response, next: NextFunc
         speed: compareStat(pokemon1.stats, pokemon2.stats, 'speed'),
       },
     });
+    return;
   } catch (error) {
     next(error);
+    return;
   }
 };
 

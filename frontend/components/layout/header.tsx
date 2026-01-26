@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Sun, Moon, Users, Swords, HelpCircle, Menu, X, Calendar, Sparkles, CircleSlash2 } from 'lucide-react'
+import { Sun, Moon, Users, Swords, HelpCircle, Menu, X, Newspaper, Sparkles, CircleSlash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/hooks/use-theme'
@@ -15,7 +15,7 @@ const navItems = [
   { href: '/team', label: 'Équipe', icon: Users },
   { href: '/compare', label: 'Comparer', icon: CircleSlash2 },
   { href: '/battle', label: 'Combat', icon: Swords },
-  { href: '/events', label: 'Événements', icon: Calendar },
+  { href: '/events', label: 'Actualités', icon: Newspaper },
   { href: '/wallpaper', label: 'Fond d\'écran', icon: Sparkles },
   { href: '/quiz', label: 'Quiz', icon: HelpCircle },
 ]

@@ -26,15 +26,15 @@ interface QuizQuestion {
 }
 
 const QUIZ_MODES = [
-  { id: 'name' as const, label: "Who's that Pokemon?", icon: HelpCircle },
-  { id: 'silhouette' as const, label: 'Silhouette Challenge', icon: Brain },
-  { id: 'type' as const, label: 'Type Master', icon: Zap },
+  { id: 'name' as const, label: "Quel est ce Pokémon ?", icon: HelpCircle },
+  { id: 'silhouette' as const, label: 'Défi Silhouette', icon: Brain },
+  { id: 'type' as const, label: 'Maître des Types', icon: Zap },
 ]
 
 const DIFFICULTIES: { id: Difficulty; label: string; range: [number, number]; timeLimit: number }[] = [
-  { id: 'easy', label: 'Easy', range: [1, 151], timeLimit: 15 },
-  { id: 'medium', label: 'Medium', range: [1, 493], timeLimit: 12 },
-  { id: 'hard', label: 'Hard', range: [1, 905], timeLimit: 10 },
+  { id: 'easy', label: 'Facile', range: [1, 151], timeLimit: 15 },
+  { id: 'medium', label: 'Moyen', range: [1, 493], timeLimit: 12 },
+  { id: 'hard', label: 'Difficile', range: [1, 1025], timeLimit: 10 },
 ]
 
 async function fetchRandomPokemon(range: [number, number]): Promise<Pokemon> {
@@ -212,16 +212,16 @@ export default function QuizPage() {
               <div className="text-center">
                 <h1 className="text-3xl md:text-4xl font-bold text-foreground flex items-center justify-center gap-3">
                   <HelpCircle className="h-8 w-8 text-primary" />
-                  Pokemon Quiz
+                  Quiz Pokémon
                 </h1>
                 <p className="text-muted-foreground mt-2">
-                  Test your Pokemon knowledge!
+                  Testez vos connaissances Pokémon !
                 </p>
               </div>
 
               {/* Mode Selection */}
               <div className="bg-card border border-border rounded-xl p-6">
-                <h2 className="font-semibold text-foreground mb-4">Select Mode</h2>
+                <h2 className="font-semibold text-foreground mb-4">Sélectionnez le Mode</h2>
                 <div className="grid gap-3">
                   {QUIZ_MODES.map(m => (
                     <button
@@ -251,7 +251,7 @@ export default function QuizPage() {
 
               {/* Difficulty Selection */}
               <div className="bg-card border border-border rounded-xl p-6">
-                <h2 className="font-semibold text-foreground mb-4">Select Difficulty</h2>
+                <h2 className="font-semibold text-foreground mb-4">Sélectionnez la Difficulté</h2>
                 <div className="grid grid-cols-3 gap-3">
                   {DIFFICULTIES.map(d => (
                     <button
@@ -279,7 +279,7 @@ export default function QuizPage() {
               </div>
 
               <Button onClick={startGame} size="lg" className="w-full gap-2">
-                Start Quiz
+                Démarrer le Quiz
                 <ChevronRight className="h-5 w-5" />
               </Button>
             </motion.div>
@@ -364,10 +364,10 @@ export default function QuizPage() {
 
                     {/* Question Text */}
                     <p className="text-center text-lg font-medium text-foreground mb-6">
-                      {mode === 'name' && "Who's that Pokemon?"}
-                      {mode === 'silhouette' && "Identify this Pokemon!"}
-                      {mode === 'type' && `What is ${formatPokemonName(question.pokemon.name)}'s primary type?`}
-                      {mode === 'stat' && `What is ${formatPokemonName(question.pokemon.name)}'s highest stat?`}
+                      {mode === 'name' && "Quel est ce Pokémon ?"}
+                      {mode === 'silhouette' && "Identifiez ce Pokémon !"}
+                      {mode === 'type' && `Quel est le type principal de ${formatPokemonName(question.pokemon.name)} ?`}
+                      {mode === 'stat' && `Quelle est la statistique la plus élevée de ${formatPokemonName(question.pokemon.name)} ?`}
                     </p>
 
                     {/* Options */}
@@ -417,10 +417,10 @@ export default function QuizPage() {
               <div className="bg-card border border-border rounded-xl p-8">
                 <Trophy className="h-16 w-16 mx-auto text-yellow-500 mb-4" />
                 <h2 className="text-3xl font-bold text-foreground mb-2">
-                  Quiz Complete!
+                  Quiz Terminé !
                 </h2>
                 <p className="text-muted-foreground mb-6">
-                  You scored {score} points!
+                  Vous avez marqué {score} points !
                 </p>
 
                 <div className="inline-flex items-center gap-4 bg-secondary rounded-lg p-4">
@@ -433,7 +433,7 @@ export default function QuizPage() {
                     <p className="text-2xl font-bold text-foreground">
                       {Math.round((score / (totalQuestions * 10)) * 100)}%
                     </p>
-                    <p className="text-xs text-muted-foreground">Accuracy</p>
+                    <p className="text-xs text-muted-foreground">Précision</p>
                   </div>
                 </div>
               </div>
@@ -441,14 +441,14 @@ export default function QuizPage() {
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button onClick={startGame} size="lg" className="gap-2">
                   <RefreshCw className="h-5 w-5" />
-                  Play Again
+                  Rejouer
                 </Button>
                 <Button 
                   onClick={() => setGameState('menu')} 
                   variant="outline" 
                   size="lg"
                 >
-                  Change Mode
+                  Changer de Mode
                 </Button>
               </div>
             </motion.div>

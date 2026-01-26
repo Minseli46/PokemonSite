@@ -5,9 +5,9 @@ import { Request, Response, NextFunction } from 'express';
  */
 export const errorHandler = (
   err: any,
-  req: Request,
+  _req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ) => {
   console.error('Error:', err);
 
@@ -26,7 +26,7 @@ export const errorHandler = (
 /**
  * Middleware pour les routes non trouvées
  */
-export const notFoundHandler = (req: Request, res: Response) => {
+export const notFoundHandler = (_req: Request, res: Response) => {
   res.status(404).json({
     error: {
       message: 'Route not found',

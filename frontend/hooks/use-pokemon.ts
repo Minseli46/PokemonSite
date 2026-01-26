@@ -12,10 +12,14 @@ const fetcher = async (url: string) => {
   return res.json()
 }
 
-export function usePokemonList(limit = 20) {
+export function usePokemonList(limit = 50) {
   const getKey = (pageIndex: number, previousPageData: { results: unknown[] } | null) => {
     if (previousPageData && !previousPageData.results.length) return null
-    return `${API_BASE}/pokemon?limit=${limit}&offset=${pageIndex * limit}`
+    // Limite totale de Pokémon disponibles dans PokeAPI (Gen 1-9)
+    const maxOffset = 1025
+    const offset = pageIndex * limit
+    if (offset >= maxOffset) return null
+    return `${API_BASE}/pokemon?limit=${limit}&offset=${offset}`
   }
 
   const { data, error, size, setSize, isLoading, isValidating } = useSWRInfinite<{

@@ -3,31 +3,16 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import dynamic from 'next/dynamic'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trash2, ExternalLink, BarChart3, Box, Users, Sparkles } from 'lucide-react'
+import { Trash2, ExternalLink, BarChart3, Users, Sparkles, Swords } from 'lucide-react'
 import { Header } from '@/components/layout/header'
 import { TypeBadge } from '@/components/pokemon/type-badge'
 import { Button } from '@/components/ui/button'
 import { useTeam } from '@/hooks/use-team'
 import { formatPokemonName, formatPokemonId } from '@/lib/pokemon'
 
-// Dynamic import for 3D scene to avoid SSR issues
-const Team3DScene = dynamic(
-  () => import('@/components/team/team-3d-scene').then(mod => mod.Team3DScene),
-  { 
-    ssr: false,
-    loading: () => (
-      <div className="w-full h-[500px] md:h-[600px] rounded-2xl bg-secondary flex items-center justify-center">
-        <p className="text-muted-foreground">Loading 3D Scene...</p>
-      </div>
-    )
-  }
-)
-
 export default function TeamPage() {
   const { team, removeFromTeam, clearTeam } = useTeam()
-  const [viewMode, setViewMode] = useState<'3d' | 'list'>('3d')
 
   // Calculate team type coverage
   const typeCoverage = team.reduce((acc, pokemon) => {
@@ -52,30 +37,37 @@ export default function TeamPage() {
             <p className="text-muted-foreground mt-1">
               {team.length}/6 Pokémon sélectionnés
             </p>
+            <Link href="/teams" className="text-sm text-primary hover:underline mt-2 inline-flex items-center gap-1">
+              <Users className="h-4 w-4" />
+              Gérer toutes mes équipes →
+            </Link>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center border border-border rounded-lg overflow-hidden">
+            <Link href="/teams">
               <Button
-                variant={viewMode === '3d' ? 'default' : 'ghost'}
+                variant="outline"
                 size="sm"
-                onClick={() => setViewMode('3d')}
-                className="rounded-none gap-2"
+                className="gap-2"
               >
-                <Box className="h-4 w-4" />
-                Vue 3D
+                <Users className="h-4 w-4" />
+                Mes Équipes
               </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-                className="rounded-none gap-2"
-              >
-                <BarChart3 className="h-4 w-4" />
-                Vue Liste
-              </Button>
-            </div>
-
+            </Link>
+            
+            {team.length >= 2 && (
+              <Link href="/battle">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Swords className="h-4 w-4" />
+                  Combattre
+                </Button>
+              </Link>
+            )}
+            
             {team.length > 0 && (
               <Button
                 variant="destructive"
@@ -111,24 +103,12 @@ export default function TeamPage() {
           </div>
         ) : (
           <>
-            {/* 3D View */}
-            {viewMode === '3d' && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-8"
-              >
-                <Team3DScene team={team} />
-              </motion.div>
-            )}
-
             {/* List View */}
-            {viewMode === 'list' && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8"
-              >
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8"
+            >
                 <AnimatePresence>
                   {team.map((pokemon, index) => (
                     <motion.div
@@ -185,7 +165,6 @@ export default function TeamPage() {
                   ))}
                 </AnimatePresence>
               </motion.div>
-            )}
 
             {/* Type Coverage */}
             <motion.div

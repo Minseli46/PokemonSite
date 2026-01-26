@@ -3,8 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { corsConfig } from './config';
 import pokemonRoutes from './routes/pokemonRoutes';
-import teamRoutes from './routes/teamRoutes';
-import quizRoutes from './routes/quizRoutes';
+import newsRoutes from './routes/news';
 import { errorHandler, notFoundHandler } from './middlewares/errorMiddleware';
 import { optionalAuth } from './middlewares/authMiddleware';
 
@@ -22,26 +21,24 @@ app.use(express.urlencoded({ extended: true }));
 app.use(optionalAuth);
 
 // Routes
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.json({
     message: 'Welcome to Pokédex API',
     version: '1.0.0',
     endpoints: {
       pokemons: '/api/pokemons',
-      teams: '/api/teams',
-      quiz: '/api/quiz',
+      news: '/api/news',
     },
   });
 });
 
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // API Routes
 app.use('/api/pokemons', pokemonRoutes);
-app.use('/api/teams', teamRoutes);
-app.use('/api/quiz', quizRoutes);
+app.use('/api/news', newsRoutes);
 
 // Gestion des erreurs
 app.use(notFoundHandler);

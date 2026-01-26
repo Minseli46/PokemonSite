@@ -20,7 +20,7 @@ interface PokemonCardProps {
 
 export function PokemonCard({ name }: PokemonCardProps) {
   const { pokemon, isLoading } = usePokemon(name)
-  const { addToTeam, isInTeam, removeFromTeam } = useTeam()
+  const { currentTeamId, addPokemonToTeam, removePokemonFromTeam, getTeam } = useTeam()
   const [imageLoaded, setImageLoaded] = useState(false)
 
   if (isLoading || !pokemon) {
@@ -31,7 +31,8 @@ export function PokemonCard({ name }: PokemonCardProps) {
     )
   }
 
-  const inTeam = isInTeam(pokemon.id)
+  const currentTeam = currentTeamId ? getTeam(currentTeamId) : null
+  const inTeam = currentTeam ? currentTeam.pokemon.some(p => p.id === pokemon.id) : false
   const primaryType = pokemon.types[0]?.type.name || 'normal'
   const imageUrl = getPokemonImage(pokemon)
 
@@ -39,8 +40,10 @@ export function PokemonCard({ name }: PokemonCardProps) {
     e.preventDefault()
     e.stopPropagation()
     
+    if (!currentTeamId) return
+    
     if (inTeam) {
-      removeFromTeam(pokemon.id)
+      removePokemonFromTeam(currentTeamId, pokemon.id)
     } else {
       const teamPokemon: TeamPokemon = {
         id: pokemon.id,
@@ -48,7 +51,7 @@ export function PokemonCard({ name }: PokemonCardProps) {
         image: imageUrl,
         types: pokemon.types.map(t => t.type.name),
       }
-      addToTeam(teamPokemon)
+      addPokemonToTeam(currentTeamId, teamPokemon)
     }
   }
 
@@ -74,10 +77,12 @@ export function PokemonCard({ name }: PokemonCardProps) {
             size="icon"
             variant={inTeam ? "default" : "outline"}
             className={cn(
-              "absolute top-2 right-2 z-10 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity",
+              "absolute top-2 right-2 z-10 h-8 w-8 rounded-full transition-opacity",
+              currentTeamId ? "opacity-0 group-hover:opacity-100" : "opacity-0 pointer-events-none",
               inTeam && "opacity-100"
             )}
             onClick={handleTeamAction}
+            disabled={!currentTeamId}
           >
             {inTeam ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
           </Button>

@@ -49,10 +49,11 @@ export function PokemonGrid({
   }, [filteredPokemon, pokemon, searchQuery, generationRange])
 
   const handleLoadMore = useCallback(() => {
-    if (!isLoadingMore && !isReachingEnd && !filteredPokemon && !selectedType) {
+    // Ne pas charger plus si on a un filtre actif (type ou génération)
+    if (!isLoadingMore && !isReachingEnd && !filteredPokemon && !selectedType && !selectedGeneration) {
       setSize(size + 1)
     }
-  }, [isLoadingMore, isReachingEnd, setSize, size, filteredPokemon, selectedType])
+  }, [isLoadingMore, isReachingEnd, setSize, size, filteredPokemon, selectedType, selectedGeneration])
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -99,7 +100,7 @@ export function PokemonGrid({
       </div>
 
       {/* Load more trigger */}
-      {!filteredPokemon && !selectedType && !isReachingEnd && (
+      {!filteredPokemon && !selectedType && !selectedGeneration && !isReachingEnd && (
         <div ref={loadMoreRef} className="flex justify-center py-8">
           {isLoadingMore && <Loader2 className="h-8 w-8 animate-spin text-primary" />}
         </div>

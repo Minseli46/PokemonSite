@@ -1,10 +1,12 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 /**
  * Configuration de la base de données
  */
 export const prismaConfig = {
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] as const : ['error'] as const,
+  log: process.env.NODE_ENV === 'development' 
+    ? (['query', 'error', 'warn'] as Prisma.LogLevel[]) 
+    : (['error'] as Prisma.LogLevel[]),
 };
 
 /**
