@@ -23,6 +23,16 @@ export function PokemonCard({ name }: PokemonCardProps) {
   const { currentTeamId, addPokemonToTeam, removePokemonFromTeam, getTeam } = useTeam()
   const [imageLoaded, setImageLoaded] = useState(false)
 
+  // Debug: voir l'état du team au render
+  React.useEffect(() => {
+    if (pokemon) {
+      console.log(`🃏 PokemonCard ${name} rendu:`, { 
+        currentTeamId, 
+        hasCurrentTeam: !!currentTeamId 
+      })
+    }
+  }, [currentTeamId, pokemon, name])
+
   if (isLoading || !pokemon) {
     return (
       <div className="flex aspect-square items-center justify-center rounded-xl bg-card border border-border">
@@ -40,18 +50,33 @@ export function PokemonCard({ name }: PokemonCardProps) {
     e.preventDefault()
     e.stopPropagation()
     
-    if (!currentTeamId) return
+    console.log('🎮 handleTeamAction appelé:', { 
+      pokemonId: pokemon.id,
+      pokemonName: pokemon.name,
+      currentTeamId,
+      inTeam,
+      hasTeam: !!currentTeam,
+      teamSize: currentTeam?.pokemon.length
+    })
+    
+    if (!currentTeamId) {
+      console.log('❌ Pas d\'équipe courante - abandon')
+      return
+    }
     
     if (inTeam) {
+      console.log('➖ Retirer du team')
       removePokemonFromTeam(currentTeamId, pokemon.id)
     } else {
+      console.log('➕ Ajouter au team')
       const teamPokemon: TeamPokemon = {
         id: pokemon.id,
         name: pokemon.name,
         image: imageUrl,
         types: pokemon.types.map(t => t.type.name),
       }
-      addPokemonToTeam(currentTeamId, teamPokemon)
+      const result = addPokemonToTeam(currentTeamId, teamPokemon)
+      console.log('Résultat addPokemonToTeam:', result)
     }
   }
 
@@ -61,9 +86,28 @@ export function PokemonCard({ name }: PokemonCardProps) {
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -4 }}
       transition={{ duration: 0.2 }}
+      className="relative group"
     >
+      {/* Team button - EN DEHORS du Link pour éviter les conflits */}
+      {currentTeamId && (
+        <Button
+          size="icon"
+          variant={inTeam ? "default" : "outline"}
+          className={cn(
+            "absolute top-2 right-2 z-20 h-8 w-8 rounded-full shadow-lg",
+            "transition-all duration-200",
+            inTeam 
+              ? "opacity-100" 
+              : "opacity-0 group-hover:opacity-100"
+          )}
+          onClick={handleTeamAction}
+        >
+          {inTeam ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+        </Button>
+      )}
+      
       <Link href={`/pokemon/${pokemon.id}`}>
-        <div className="group relative overflow-hidden rounded-xl bg-card border border-border hover:border-primary/50 hover:shadow-lg transition-all duration-300">
+        <div className="relative overflow-hidden rounded-xl bg-card border border-border hover:border-primary/50 hover:shadow-lg transition-all duration-300">
           {/* Background gradient based on type */}
           <div 
             className={cn(
@@ -71,21 +115,6 @@ export function PokemonCard({ name }: PokemonCardProps) {
               TYPE_COLORS[primaryType]
             )} 
           />
-          
-          {/* Team button */}
-          <Button
-            size="icon"
-            variant={inTeam ? "default" : "outline"}
-            className={cn(
-              "absolute top-2 right-2 z-10 h-8 w-8 rounded-full transition-opacity",
-              currentTeamId ? "opacity-0 group-hover:opacity-100" : "opacity-0 pointer-events-none",
-              inTeam && "opacity-100"
-            )}
-            onClick={handleTeamAction}
-            disabled={!currentTeamId}
-          >
-            {inTeam ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          </Button>
 
           {/* Pokemon image */}
           <div className="relative aspect-square p-4">

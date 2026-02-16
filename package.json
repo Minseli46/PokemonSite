@@ -11,7 +11,13 @@
     "install:frontend": "cd frontend && npm install",
     "start": "npm run dev"
   },
-  "keywords": ["pokemon", "pokedex", "nextjs", "express", "typescript"],
+  "keywords": [
+    "pokemon",
+    "pokedex",
+    "nextjs",
+    "express",
+    "typescript"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {

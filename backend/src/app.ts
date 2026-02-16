@@ -5,7 +5,6 @@ import { corsConfig } from './config';
 import pokemonRoutes from './routes/pokemonRoutes';
 import newsRoutes from './routes/news';
 import { errorHandler, notFoundHandler } from './middlewares/errorMiddleware';
-import { optionalAuth } from './middlewares/authMiddleware';
 
 // Charge les variables d'environnement
 dotenv.config();
@@ -16,9 +15,6 @@ const app: Application = express();
 app.use(cors(corsConfig));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Middleware d'authentification optionnel
-app.use(optionalAuth);
 
 // Routes
 app.get('/', (_req, res) => {
