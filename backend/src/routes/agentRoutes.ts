@@ -10,7 +10,7 @@
 
 import { Router, Request, Response } from 'express';
 import { orchestrate, runTeamAgent, runQuizAgent, runWallpaperAgent } from '../agents';
-import type { AgentRequest } from '../agents';
+import { createAgentHandler, logAgentRequest } from './agentHelpers';
 
 const router = Router();
 
@@ -18,131 +18,25 @@ const router = Router();
  * POST /api/agent/chat
  * Point d'entrée principal - l'orchestrateur décide quel agent utiliser
  */
-router.post('/chat', async (req: Request, res: Response) => {
-  try {
-    const { message, conversationHistory, context } = req.body as AgentRequest;
-
-    if (!message || typeof message !== 'string') {
-      return res.status(400).json({
-        success: false,
-        error: 'Le champ "message" est requis',
-      });
-    }
-
-    console.log('\n' + '='.repeat(70));
-    console.log('🤖 API /agent/chat - Nouvelle requête');
-    console.log('='.repeat(70));
-
-    const response = await orchestrate(
-      message,
-      conversationHistory || [],
-      context
-    );
-
-    res.json({
-      success: true,
-      data: {
-        agent: response.agent,
-        message: response.message,
-        toolsUsed: response.toolsUsed,
-        actions: response.actions || [],
-      },
-    });
-  } catch (error: any) {
-    console.error('❌ Agent Error:', error.message);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Erreur interne de l\'agent',
-    });
-  }
-});
+router.post('/chat', logAgentRequest('chat'), createAgentHandler(orchestrate, 'Orchestrator'));
 
 /**
  * POST /api/agent/team
  * Accès direct au Team Agent
  */
-router.post('/team', async (req: Request, res: Response) => {
-  try {
-    const { message, conversationHistory } = req.body as AgentRequest;
-
-    if (!message) {
-      return res.status(400).json({ success: false, error: 'Le champ "message" est requis' });
-    }
-
-    const response = await runTeamAgent(message, conversationHistory || []);
-
-    res.json({
-      success: true,
-      data: {
-        agent: response.agent,
-        message: response.message,
-        toolsUsed: response.toolsUsed,
-        actions: response.actions || [],
-      },
-    });
-  } catch (error: any) {
-    console.error('❌ Team Agent Error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+router.post('/team', logAgentRequest('team'), createAgentHandler(runTeamAgent, 'Team Agent'));
 
 /**
  * POST /api/agent/quiz
  * Accès direct au Quiz Agent
  */
-router.post('/quiz', async (req: Request, res: Response) => {
-  try {
-    const { message, conversationHistory } = req.body as AgentRequest;
-
-    if (!message) {
-      return res.status(400).json({ success: false, error: 'Le champ "message" est requis' });
-    }
-
-    const response = await runQuizAgent(message, conversationHistory || []);
-
-    res.json({
-      success: true,
-      data: {
-        agent: response.agent,
-        message: response.message,
-        toolsUsed: response.toolsUsed,
-        actions: response.actions || [],
-      },
-    });
-  } catch (error: any) {
-    console.error('❌ Quiz Agent Error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+router.post('/quiz', logAgentRequest('quiz'), createAgentHandler(runQuizAgent, 'Quiz Agent'));
 
 /**
  * POST /api/agent/wallpaper
  * Accès direct au Wallpaper Agent
  */
-router.post('/wallpaper', async (req: Request, res: Response) => {
-  try {
-    const { message, conversationHistory } = req.body as AgentRequest;
-
-    if (!message) {
-      return res.status(400).json({ success: false, error: 'Le champ "message" est requis' });
-    }
-
-    const response = await runWallpaperAgent(message, conversationHistory || []);
-
-    res.json({
-      success: true,
-      data: {
-        agent: response.agent,
-        message: response.message,
-        toolsUsed: response.toolsUsed,
-        actions: response.actions || [],
-      },
-    });
-  } catch (error: any) {
-    console.error('❌ Wallpaper Agent Error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+router.post('/wallpaper', logAgentRequest('wallpaper'), createAgentHandler(runWallpaperAgent, 'Wallpaper Agent'));
 
 /**
  * GET /api/agent/health

@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Download, Palette, Sparkles, Bot, Check, X } from 'lucide-react'
-import { AIChatPanel } from '@/components/ai/ai-chat-panel'
-import type { AgentAction, WallpaperConfigAction } from '@/hooks/use-agent'
+import { WallpaperBuilderInterface } from '@/components/ai/wallpaper-builder-interface'
+import type { WallpaperConfigAction } from '@/hooks/use-agent'
 import { cn } from '@/lib/utils'
 
 const patterns = [
@@ -42,10 +42,9 @@ export default function WallpaperPage() {
   const [aiSuggestions, setAiSuggestions] = useState<WallpaperConfigAction['data'][]>([])
   const [appliedSuggestion, setAppliedSuggestion] = useState<number | null>(null)
 
-  const handleAiActions = useCallback((actions: AgentAction[]) => {
-    const wallpaperActions = actions.filter(a => a.type === 'wallpaper_config') as WallpaperConfigAction[]
-    if (wallpaperActions.length > 0) {
-      setAiSuggestions(wallpaperActions.map(a => a.data))
+  const handleWallpaperGenerated = useCallback((suggestions: WallpaperConfigAction[]) => {
+    if (suggestions.length > 0) {
+      setAiSuggestions(suggestions.map(s => s.data))
       setAppliedSuggestion(null)
     }
   }, [])
@@ -209,157 +208,20 @@ export default function WallpaperPage() {
           </p>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-[1fr_2fr]">
-          {/* Configuration */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Pokémon</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>ID du Pokémon</Label>
-                  <Input
-                    type="number"
-                    value={pokemonId}
-                    onChange={(e) => {
-                      const id = parseInt(e.target.value) || 1
-                      setPokemonId(id)
-                    }}
-                    min="1"
-                    max="898"
-                  />
-                </div>
-                <div>
-                  <Label>Nom</Label>
-                  <Input
-                    value={pokemonName}
-                    onChange={(e) => setPokemonName(e.target.value)}
-                    placeholder="pikachu"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Palette className="w-5 h-5" />
-                  Couleur
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
-                  {presetColors.map((preset) => (
-                    <button
-                      key={preset.color}
-                      onClick={() => setBackgroundColor(preset.color)}
-                      className={`h-12 rounded-lg border-2 transition-all ${
-                        backgroundColor === preset.color
-                          ? 'border-white scale-110'
-                          : 'border-gray-300'
-                      }`}
-                      style={{ backgroundColor: preset.color }}
-                      title={preset.name}
-                    />
-                  ))}
-                </div>
-                <Input
-                  type="color"
-                  value={backgroundColor}
-                  onChange={(e) => setBackgroundColor(e.target.value)}
-                  className="h-12"
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Motif</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-3">
-                  {patterns.map((p) => (
-                    <button
-                      key={p.value}
-                      onClick={() => setPattern(p.value as any)}
-                      className={`p-4 rounded-lg border-2 transition-all ${
-                        pattern === p.value
-                          ? 'border-primary bg-primary/10'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <div className="text-3xl mb-2">{p.icon}</div>
-                      <div className="text-sm font-medium">{p.label}</div>
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Options</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="showName"
-                    checked={showName}
-                    onChange={(e) => setShowName(e.target.checked)}
-                    className="w-5 h-5"
-                  />
-                  <Label htmlFor="showName" className="cursor-pointer">
-                    Afficher le nom
-                  </Label>
-                </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="showId"
-                    checked={showId}
-                    onChange={(e) => setShowId(e.target.checked)}
-                    className="w-5 h-5"
-                  />
-                  <Label htmlFor="showId" className="cursor-pointer">
-                    Afficher le numéro
-                  </Label>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Button onClick={downloadWallpaper} size="lg" className="w-full">
-              <Download className="mr-2 h-5 w-5" />
-              Télécharger (1920x1080)
-            </Button>
-          </div>
-
-          {/* Prévisualisation */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Prévisualisation</CardTitle>
-              <CardDescription>Résolution finale : 1920 x 1080 pixels</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <canvas
-                ref={canvasRef}
-                className="w-full h-auto rounded-lg shadow-2xl"
-                style={{ maxHeight: '70vh' }}
-              />
-            </CardContent>
-          </Card>
+        {/* AI Wallpaper Builder */}
+        <div className="max-w-4xl mx-auto mb-8">
+          <WallpaperBuilderInterface onWallpaperGenerated={handleWallpaperGenerated} />
         </div>
 
-        {/* AI-Generated Wallpaper Suggestions — Main Page Area */}
+        {/* AI-Generated Wallpaper Suggestions — Displayed Right Below Generator */}
         {aiSuggestions.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-10 space-y-6"
+            className="max-w-4xl mx-auto mb-12"
           >
             {/* AI Suggestions Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500/20 to-rose-500/20 flex items-center justify-center">
                   <Bot className="h-5 w-5 text-pink-500" />
@@ -524,29 +386,147 @@ export default function WallpaperPage() {
           </motion.div>
         )}
 
-        {/* AI Wallpaper Assistant */}
-        <AIChatPanel
-          agent="wallpaper"
-          title="🎨 Designer IA"
-          placeholder="Demandez des idées de fonds d'écran..."
-          accentColor="text-pink-500"
-          headerGradient="from-pink-500/20 to-rose-500/20"
-          icon={Sparkles}
-          context={{
-            currentPokemon: pokemonName,
-            currentColor: backgroundColor,
-            currentPattern: pattern,
-          }}
-          onActions={handleAiActions}
-          onApplyWallpaper={(config) => applyWallpaperConfig(config)}
-          initialMessage={`L'utilisateur est sur la page de création de fonds d'écran. Il a actuellement ${pokemonName} (#${pokemonId}) avec la couleur ${backgroundColor} et le motif ${pattern}. Propose-lui 2-3 thèmes de wallpaper variés et inspirants qu'il peut appliquer directement. Utilise suggest_wallpaper_theme pour chaque proposition.`}
-          quickActions={[
-            { label: '🔥 Thème Feu', message: 'Suggère-moi un fond d\'écran avec un Pokémon de type Feu. Donne-moi les couleurs HEX, le motif idéal et le Pokémon parfait.' },
-            { label: '💧 Thème Eau', message: 'Propose un wallpaper thème aquatique. Quel Pokémon Eau, quelle palette de couleurs et quel motif choisir ?' },
-            { label: '🌙 Thème Sombre', message: 'Je veux un fond d\'écran sombre et mystérieux. Quel Pokémon de type Ténèbres ou Spectre et quelle palette me recommandes-tu ?' },
-            { label: '✨ Harmoniser', message: `J'ai choisi ${pokemonName} avec la couleur ${backgroundColor}. Quelle combinaison de motif et d'options me recommandes-tu pour un résultat optimal ?` },
-          ]}
-        />
+        <div className="grid gap-8 lg:grid-cols-[1fr_2fr]">
+          {/* Configuration */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pokémon</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>ID du Pokémon</Label>
+                  <Input
+                    type="number"
+                    value={pokemonId}
+                    onChange={(e) => {
+                      const id = parseInt(e.target.value) || 1
+                      setPokemonId(id)
+                    }}
+                    min="1"
+                    max="898"
+                  />
+                </div>
+                <div>
+                  <Label>Nom</Label>
+                  <Input
+                    value={pokemonName}
+                    onChange={(e) => setPokemonName(e.target.value)}
+                    placeholder="pikachu"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Palette className="w-5 h-5" />
+                  Couleur
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-3">
+                  {presetColors.map((preset) => (
+                    <button
+                      key={preset.color}
+                      onClick={() => setBackgroundColor(preset.color)}
+                      className={`h-12 rounded-lg border-2 transition-all ${
+                        backgroundColor === preset.color
+                          ? 'border-white scale-110'
+                          : 'border-gray-300'
+                      }`}
+                      style={{ backgroundColor: preset.color }}
+                      title={preset.name}
+                    />
+                  ))}
+                </div>
+                <Input
+                  type="color"
+                  value={backgroundColor}
+                  onChange={(e) => setBackgroundColor(e.target.value)}
+                  className="h-12"
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Motif</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3">
+                  {patterns.map((p) => (
+                    <button
+                      key={p.value}
+                      onClick={() => setPattern(p.value as any)}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        pattern === p.value
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="text-3xl mb-2">{p.icon}</div>
+                      <div className="text-sm font-medium">{p.label}</div>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Options</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="showName"
+                    checked={showName}
+                    onChange={(e) => setShowName(e.target.checked)}
+                    className="w-5 h-5"
+                  />
+                  <Label htmlFor="showName" className="cursor-pointer">
+                    Afficher le nom
+                  </Label>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="showId"
+                    checked={showId}
+                    onChange={(e) => setShowId(e.target.checked)}
+                    className="w-5 h-5"
+                  />
+                  <Label htmlFor="showId" className="cursor-pointer">
+                    Afficher le numéro
+                  </Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Button onClick={downloadWallpaper} size="lg" className="w-full">
+              <Download className="mr-2 h-5 w-5" />
+              Télécharger (1920x1080)
+            </Button>
+          </div>
+
+          {/* Prévisualisation */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Prévisualisation</CardTitle>
+              <CardDescription>Résolution finale : 1920 x 1080 pixels</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <canvas
+                ref={canvasRef}
+                className="w-full h-auto rounded-lg shadow-2xl"
+                style={{ maxHeight: '70vh' }}
+              />
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </div>
   )
