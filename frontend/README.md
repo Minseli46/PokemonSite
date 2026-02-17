@@ -1,285 +1,300 @@
-# Frontend - Pokédex Application
+# 🎨 Frontend — Pokédex Application
 
-Interface utilisateur Next.js 16 pour l'application Pokédex.
+Interface utilisateur moderne construite avec **Next.js 16**, **React 19**, **Tailwind CSS 4** et **shadcn/ui**. Inclut une interface de chat avec le système multi-agent IA du backend.
+
+![Next.js](https://img.shields.io/badge/Next.js-16.0-black)
+![React](https://img.shields.io/badge/React-19.2-blue)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.1-cyan)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)
+![Zustand](https://img.shields.io/badge/Zustand-5.0-orange)
+
+---
 
 ## 🚀 Démarrage Rapide
 
 ```bash
-# Installer les dépendances
+# 1. Installer les dépendances
 npm install
 
-# Configurer l'environnement
-cp .env.example .env.local
-# Éditer .env.local avec l'URL du backend
+# 2. Configurer l'environnement (optionnel)
+echo "NEXT_PUBLIC_BACKEND_URL=http://localhost:3000" > .env.local
 
-# Lancer en développement
+# 3. Lancer en développement
 npm run dev
 ```
 
-L'application sera accessible sur **http://localhost:3001**
+Le frontend démarre sur **http://localhost:3001** (port 3001 si le backend occupe le 3000).
 
-## 📁 Structure
+> **Prérequis** : Le backend doit être lancé sur le port 3000 pour que les fonctionnalités IA et les données Pokémon fonctionnent.
+
+---
+
+## 📱 Pages de l'Application
+
+| Page | Route | Description |
+|------|-------|-------------|
+| 🔍 **Pokédex** | `/` | Grille de Pokémon avec recherche, filtres par type/génération, pagination infinie |
+| 📄 **Détail Pokémon** | `/pokemon/[id]` | Fiche complète : stats, évolutions, capacités, sprites |
+| 👥 **Mon Équipe** | `/team` | Gestion d'une équipe de 6 Pokémon (drag & drop, analyse) |
+| 📋 **Mes Équipes** | `/teams` | Liste de toutes les équipes sauvegardées |
+| ⚔️ **Combat** | `/battle` | Simulateur de combat entre deux Pokémon |
+| 📊 **Comparateur** | `/compare` | Comparer les stats de deux Pokémon côte à côte |
+| 🎯 **Quiz** | `/quiz` | Quiz Pokémon interactif (6 modes, 3 difficultés) |
+| 🎨 **Wallpaper** | `/wallpaper` | Créateur de fonds d'écran Pokémon (canvas) |
+| 🗺️ **Événements** | `/events` | Actualités et événements Pokémon |
+| 🤖 **PokéAgent IA** | `/agent` | Interface de chat multi-agent IA |
+
+---
+
+## 🤖 Interface IA — PokéAgent (`/agent`)
+
+L'interface de chat permet d'interagir avec le système multi-agent du backend :
+
+### Fonctionnalités
+
+- **Sélection de mode** : Auto (orchestrateur), Team, Quiz, Wallpaper
+- **Quick prompts** : 6 suggestions prédéfinies pour démarrer
+- **Badges d'agent** : Chaque agents a son propre badge coloré (🛡️ Team, 🧠 Quiz, 🎨 Wallpaper)
+- **Affichage des outils** : Montre quels outils LangChain ont été appelés
+- **Actions interactives** :
+  - `team_proposal` → Carte d'équipe avec 6 Pokémon (bouton "Créer cette équipe")
+  - `quiz_question` → Question interactive avec 4 options
+  - `wallpaper_config` → Aperçu du wallpaper avec couleurs et style
+- **Health check** : Indicateur vert/rouge pour le statut du backend IA
+- **Contexte d'équipe** : L'agent reçoit automatiquement la composition de votre équipe actuelle
+- **Historique conversationnel** : Les 10 derniers messages sont envoyés pour le contexte
+
+### Architecture du hook `useAgent`
+
+```typescript
+// hooks/use-agent.ts
+const {
+  messages,         // Historique de chat affiché
+  isLoading,        // Requête en cours
+  agentHealth,      // Statut du backend (ready/error)
+  sendMessage,      // Envoyer un message au backend
+  checkHealth,      // Vérifier le statut du backend
+  clearMessages,    // Réinitialiser la conversation
+  cancel,           // Annuler la requête (AbortController)
+} = useAgent();
+```
+
+---
+
+## 🛠️ Stack Technique
+
+### Framework & Runtime
+
+| Technologie | Version | Rôle |
+|-------------|---------|------|
+| **Next.js** | 16.0.10 | Framework React (App Router, Turbopack) |
+| **React** | 19.2.0 | Bibliothèque UI |
+| **TypeScript** | 5.x | Typage statique |
+
+### UI & Styling
+
+| Technologie | Version | Rôle |
+|-------------|---------|------|
+| **Tailwind CSS** | 4.1 | Utility-first CSS |
+| **shadcn/ui** | — | Composants UI (Radix UI + Tailwind) |
+| **Radix UI** | — | Primitives accessibles (Dialog, Tabs, Toast, etc.) |
+| **Framer Motion** | 12.29 | Animations |
+| **Lucide React** | 0.454 | Icônes |
+| **next-themes** | 0.4 | Thème clair/sombre |
+
+### État & Data Fetching
+
+| Technologie | Version | Rôle |
+|-------------|---------|------|
+| **Zustand** | 5.0.10 | State management (équipe, favoris) |
+| **SWR** | 2.3.8 | Data fetching avec cache |
+
+### Autres
+
+| Technologie | Rôle |
+|-------------|------|
+| **canvas-confetti** | Effets de confettis (quiz) |
+| **class-variance-authority** | Variants de composants |
+| **@vercel/analytics** | Analytics |
+
+---
+
+## 🧩 Composants
+
+### Composants IA (`components/ai/`)
+
+| Composant | Description |
+|-----------|-------------|
+| `ai-chat-panel.tsx` | Panel de chat IA (messages, input, mode selector) |
+| `team-proposal-card.tsx` | Carte d'équipe proposée par l'agent (6 Pokémon, bouton créer) |
+| `quiz-card.tsx` | Carte de question quiz interactive (4 options, réponse) |
+| `wallpaper-card.tsx` | Aperçu de wallpaper proposé par l'agent |
+
+### Composants Pokémon (`components/pokemon/`)
+
+| Composant | Description |
+|-----------|-------------|
+| `pokemon-card.tsx` | Carte Pokémon dans la grille |
+| `pokemon-grid.tsx` | Grille responsive de cartes Pokémon |
+| `search-bar.tsx` | Barre de recherche |
+| `filter-panel.tsx` | Filtres (type, génération) |
+| `stats-chart.tsx` | Graphique radar des stats |
+| `evolution-chain.tsx` | Chaîne d'évolution |
+| `type-badge.tsx` | Badge de type coloré |
+| `weakness-chart.tsx` | Graphique des faiblesses/résistances |
+| `team-preview.tsx` | Aperçu de l'équipe actuelle |
+
+### Layout (`components/layout/`)
+
+| Composant | Description |
+|-----------|-------------|
+| `header.tsx` | Navigation principale avec liens vers toutes les pages |
+
+### UI (`components/ui/`)
+
+Composants **shadcn/ui** (Radix UI + Tailwind) : Button, Card, Dialog, Input, Label, Progress, Tabs, Toast, etc.
+
+---
+
+## 🪝 Hooks Personnalisés
+
+| Hook | Fichier | Description |
+|------|---------|-------------|
+| `useAgent` | `hooks/use-agent.ts` | Communication avec l'API multi-agent IA |
+| `useAgentAction` | `hooks/use-agent-action.ts` | Gestion des actions agent (team_proposal, quiz, wallpaper) |
+| `useBackendApi` | `hooks/use-backend-api.ts` | Appels API génériques au backend |
+| `usePokemon` | `hooks/use-pokemon.ts` | Fetch et cache des données Pokémon |
+| `usePokemonNews` | `hooks/use-pokemon-news.ts` | Actualités Pokémon |
+| `useTeam` | `hooks/use-team.ts` | Gestion de l'équipe (Zustand store) |
+| `useTheme` | `hooks/use-theme.ts` | Thème clair/sombre |
+| `useToast` | `hooks/use-toast.ts` | Notifications toast |
+
+---
+
+## 📁 Structure des Fichiers
 
 ```
 frontend/
-├── app/                    # Pages (App Router)
-│   ├── page.tsx           # Page d'accueil (Pokédex)
-│   ├── layout.tsx         # Layout racine
-│   ├── battle/            # Simulateur de combat
-│   ├── compare/           # Comparateur
-│   ├── events/            # Événements locaux
-│   ├── pokemon/[id]/      # Détails Pokémon (route dynamique)
-│   ├── quiz/              # Quiz interactif
-│   ├── team/              # Gestion d'équipe
-│   └── wallpaper/         # Générateur de wallpapers
+├── package.json
+├── tsconfig.json
+├── next.config.ts
+├── postcss.config.mjs
+├── components.json            # Config shadcn/ui
 │
-├── components/            # Composants réutilisables
-│   ├── layout/           # Header, Footer
-│   ├── pokemon/          # Composants Pokémon
-│   ├── team/             # Composants équipe
-│   └── ui/               # Composants UI (shadcn)
+├── app/                       # Next.js App Router
+│   ├── globals.css            # Styles globaux (Tailwind)
+│   ├── layout.tsx             # Layout racine (lang="fr", police Geist)
+│   ├── loading.tsx            # Composant de chargement
+│   ├── not-found.tsx          # Page 404
+│   ├── page.tsx               # Pokédex (accueil)
+│   ├── agent/
+│   │   └── page.tsx           # 🤖 Chat IA Multi-Agent (405 lignes)
+│   ├── battle/
+│   │   └── page.tsx           # ⚔️ Simulateur de combat
+│   ├── compare/
+│   │   └── page.tsx           # 📊 Comparateur
+│   ├── events/
+│   │   └── page.tsx           # 🗺️ Événements & news
+│   ├── pokemon/
+│   │   └── [id]/page.tsx      # 📄 Détail Pokémon (route dynamique)
+│   ├── quiz/
+│   │   └── page.tsx           # 🎯 Quiz interactif
+│   ├── team/
+│   │   └── page.tsx           # 👥 Gestion d'équipe
+│   ├── teams/
+│   │   └── page.tsx           # 📋 Liste des équipes
+│   └── wallpaper/
+│       └── page.tsx           # 🎨 Créateur de wallpapers
 │
-├── hooks/                # Custom hooks
-│   ├── use-pokemon.ts    # Hooks Pokémon
-│   ├── use-team.ts       # Gestion équipe
-│   ├── use-theme.ts      # Thème sombre/clair
-│   └── use-backend-api.ts # API backend
+├── components/
+│   ├── ai/                    # Composants IA
+│   │   ├── ai-chat-panel.tsx
+│   │   ├── quiz-card.tsx
+│   │   ├── team-proposal-card.tsx
+│   │   └── wallpaper-card.tsx
+│   ├── pokemon/               # Composants Pokémon
+│   │   ├── pokemon-card.tsx
+│   │   ├── pokemon-grid.tsx
+│   │   ├── search-bar.tsx
+│   │   ├── filter-panel.tsx
+│   │   ├── stats-chart.tsx
+│   │   ├── evolution-chain.tsx
+│   │   ├── type-badge.tsx
+│   │   ├── weakness-chart.tsx
+│   │   └── team-preview.tsx
+│   ├── layout/
+│   │   └── header.tsx
+│   ├── ui/                    # shadcn/ui primitives
+│   │   ├── button.tsx
+│   │   ├── card.tsx
+│   │   ├── dialog.tsx
+│   │   ├── input.tsx
+│   │   ├── tabs.tsx
+│   │   └── ...
+│   └── theme-provider.tsx
 │
-├── lib/                  # Utilitaires
-│   ├── pokemon.ts        # Types & constantes
-│   ├── api-config.ts     # Configuration API
-│   ├── translations.ts   # Traductions FR
-│   └── utils.ts          # Fonctions utilitaires
+├── hooks/
+│   ├── use-agent.ts           # Hook principal IA
+│   ├── use-agent-action.ts
+│   ├── use-backend-api.ts
+│   ├── use-pokemon.ts
+│   ├── use-pokemon-news.ts
+│   ├── use-team.ts
+│   ├── use-theme.ts
+│   └── use-toast.ts
 │
-└── public/               # Assets statiques
+├── lib/
+│   ├── utils.ts               # Utilitaires (cn, etc.)
+│   └── stores/                # Stores Zustand
+│
+└── public/
+    └── ...                    # Assets statiques
 ```
 
-## 🎨 Pages & Fonctionnalités
+---
 
-### 🏠 Page d'Accueil (`/`)
-- Grille de Pokémon avec scroll infini
-- Recherche en temps réel
-- Filtres : Type, Génération
-- Ajout rapide à l'équipe
+## 🔧 Variables d'Environnement
 
-### 👥 Équipe (`/team`)
-- Vue 3D interactive (Three.js)
-- Vue liste avec détails
-- Analyse de couverture des types
-- Sauvegarde en BDD
+| Variable | Description | Défaut |
+|----------|-------------|--------|
+| `NEXT_PUBLIC_BACKEND_URL` | URL de l'API backend | `http://localhost:3000` |
 
-### ⚔️ Combat (`/battle`)
-- Sélection de 2 Pokémon
-- Simulation de combat
-- Calcul de dégâts basé sur stats
-- Système d'efficacité des types
-
-### 📊 Comparaison (`/compare`)
-- Comparaison côte à côte
-- Graphiques de statistiques
-- Recherche rapide
-- Sélection depuis équipe
-
-### 🎯 Quiz (`/quiz`)
-- 3 modes : Qui est ce Pokémon ?, Silhouette, Types
-- 3 difficultés : Facile (Gen 1), Moyen (Gen 1-4), Difficile (Tous)
-- Timer et score
-- Effets visuels (confetti)
-
-### 🗺️ Événements (`/events`)
-- Géolocalisation automatique
-- Événements Pokémon locaux
-- Liens vers informations
-
-### 🎨 Fond d'Écran (`/wallpaper`)
-- Génération 1920x1080
-- 4 motifs : Dégradé, Points, Vagues, Géométrique
-- Palette de couleurs personnalisable
-- Téléchargement PNG
-
-### 📄 Détails Pokémon (`/pokemon/[id]`)
-- Informations complètes
-- Statistiques détaillées
-- Chaîne d'évolution
-- Faiblesses/Résistances
-
-## 🎨 Technologies UI
-
-- **Next.js 16** - Framework React avec App Router
-- **Tailwind CSS** - Styling utilitaire
-- **shadcn/ui** - Composants (Radix UI)
-- **Framer Motion** - Animations fluides
-- **Three.js** - Rendu 3D (vue équipe)
-- **SWR** - Data fetching & cache
-- **Canvas API** - Génération wallpapers
-
-## 🔌 Intégration Backend
-
-Configuration dans `.env.local` :
+Créer un fichier `.env.local` à la racine du frontend :
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:3000
+NEXT_PUBLIC_BACKEND_URL=http://localhost:3000
 ```
 
-Hooks disponibles dans `hooks/use-backend-api.ts` :
+---
 
-```typescript
-import { useBackendPokemonList, useBackendPokemon } from '@/hooks/use-backend-api'
+## 📜 Scripts NPM
 
-// Liste avec pagination
-const { data, error, isLoading } = useBackendPokemonList(20, 0)
+| Commande | Description |
+|----------|-------------|
+| `npm run dev` | Serveur de développement (Turbopack, hot-reload) |
+| `npm run build` | Build de production |
+| `npm start` | Serveur de production |
+| `npm run lint` | Linter ESLint |
 
-// Pokémon unique
-const { pokemon } = useBackendPokemon(25) // Pikachu
-```
+---
 
-## 🎨 Composants UI
+## 🎨 Design System
 
-### shadcn/ui
+### Thème
 
-Composants installés :
-- Button, Card, Input, Select
-- Dialog, DropdownMenu, Popover
-- Progress, Spinner, Badge
-- Et plus...
+- **Mode clair/sombre** via `next-themes`
+- **Palette** : Basée sur les couleurs des types Pokémon
+- **Police** : Geist (Sans + Mono)
+- **Animations** : Framer Motion pour les transitions de page et les cartes
 
-Ajouter un composant :
+### Responsive
 
-```bash
-npx shadcn-ui@latest add button
-```
+- **Mobile-first** avec Tailwind breakpoints
+- **Grille adaptive** : 1 col (mobile) → 2 cols (tablet) → 3-4 cols (desktop)
 
-### Composants Personnalisés
+### Composants shadcn/ui
 
-- `<PokemonCard>` - Carte Pokémon
-- `<TypeBadge>` - Badge de type
-- `<SearchBar>` - Barre de recherche
-- `<FilterPanel>` - Panneau de filtres
-- `<TeamPreview>` - Prévisualisation équipe
-- `<Team3DScene>` - Scène 3D équipe
-
-## 🔧 Scripts NPM
-
-```bash
-npm run dev      # Développement (Turbopack)
-npm run build    # Build production
-npm start        # Serveur production
-npm run lint     # ESLint
-```
-
-## 🌍 Internationalisation
-
-L'application est actuellement en **français**.
-
-Fichier de traductions : `lib/translations.ts`
-
-Pour ajouter une langue :
-1. Créer `lib/translations-en.ts`
-2. Créer un hook `use-locale.ts`
-3. Mettre à jour les composants
-
-## 📦 Dépendances Principales
-
-```json
-{
-  "next": "^16.0.10",
-  "react": "^19.0.0",
-  "tailwindcss": "^3.4.0",
-  "framer-motion": "^11.0.0",
-  "three": "^0.160.0",
-  "swr": "^2.2.0",
-  "canvas-confetti": "^1.9.0"
-}
-```
-
-## 🎨 Thèmes
-
-Support du mode sombre/clair via `use-theme` hook :
-
-```typescript
-import { useTheme } from '@/hooks/use-theme'
-
-const { theme, setTheme } = useTheme()
-```
-
-Classes Tailwind disponibles :
-- `bg-background`, `text-foreground`
-- `bg-card`, `text-card-foreground`
-- `bg-primary`, `text-primary-foreground`
-
-## 🐛 Debugging
-
-### Erreur d'Hydration
-
-Si vous voyez des erreurs d'hydration :
-1. Vérifier `suppressHydrationWarning` dans `layout.tsx`
-2. Vider `.next/` : `rm -rf .next`
-3. Relancer : `npm run dev`
-
-### Erreur CORS
-
-Vérifier que `NEXT_PUBLIC_API_URL` pointe vers le bon backend.
-
-### Images ne chargent pas
-
-Vérifier `next.config.mjs` - domaines autorisés :
-- `raw.githubusercontent.com`
-- `pokeapi.co`
-
-## 📱 Responsive Design
-
-Breakpoints Tailwind :
-- `sm:` - ≥ 640px
-- `md:` - ≥ 768px
-- `lg:` - ≥ 1024px
-- `xl:` - ≥ 1280px
-
-## 🚀 Déploiement
-
-### Vercel (Recommandé)
-
-```bash
-vercel deploy
-```
-
-### Build Manuel
-
-```bash
-npm run build
-npm start
-```
-
-L'application sera servie sur le port **3000** (configurable via `PORT`).
-
-## 📝 Développement
-
-### Ajouter une Page
-
-1. Créer `app/ma-page/page.tsx`
-2. Ajouter la route dans `components/layout/header.tsx`
-3. (Optionnel) Créer `app/ma-page/loading.tsx` pour le skeleton
-
-### Créer un Composant
-
-```bash
-# Avec shadcn
-npx shadcn-ui@latest add nom-composant
-
-# Personnalisé
-# Créer dans components/pokemon/ ou components/ui/
-```
-
-### Utiliser l'API
-
-```typescript
-import { useBackendPokemon } from '@/hooks/use-backend-api'
-
-export default function MaPage() {
-  const { pokemon, error, isLoading } = useBackendPokemon(1)
-  
-  if (isLoading) return <div>Chargement...</div>
-  if (error) return <div>Erreur</div>
-  
-  return <div>{pokemon.name}</div>
-}
-```
+Composants Radix UI customisés avec Tailwind CSS :
+- `Button`, `Card`, `Dialog`, `DropdownMenu`
+- `Input`, `Label`, `Progress`, `Tabs`, `Toast`
+- Intégrés via `components/ui/`
