@@ -1,14 +1,18 @@
 /**
- * Wallpaper (Theme) Agent 🎨
+ * Wallpaper (Theme) Agent 🎨 (LangChain) 🦜🔗
  * 
  * Agent spécialisé dans la personnalisation visuelle et la création de fonds d'écran.
+ * Utilise createReactAgent de @langchain/langgraph/prebuilt.
  * Suggère des thèmes, palettes de couleurs, et combinaisons de Pokémon.
  */
 
-import { chatCompletion } from './mistralClient';
-import { pokemonToolDefinitions, pokemonToolExecutors } from './tools/pokemonTools';
-import { wallpaperToolDefinitions, wallpaperToolExecutors } from './tools/wallpaperTools';
-import type { ChatMessage, ToolDefinition, ToolRegistry, AgentResponse, AgentAction } from './types';
+import { createReactAgent } from '@langchain/langgraph/prebuilt';
+import { HumanMessage, AIMessage } from '@langchain/core/messages';
+import type { BaseMessage } from '@langchain/core/messages';
+import { getMistralModel } from './mistralClient';
+import { pokemonTools } from './tools/pokemonTools';
+import { wallpaperTools } from './tools/wallpaperTools';
+import type { ChatMessage, AgentResponse, AgentAction } from './types';
 
 // ============================================
 // CONFIGURATION DE L'AGENT
@@ -48,133 +52,132 @@ Quand l'utilisateur veut des suggestions, appelle suggest_wallpaper_theme pour C
 - Propose toujours des alternatives si le premier choix ne plaît pas
 - Pense à l'harmonie des couleurs entre types doubles`;
 
-const AGENT_TOOLS: ToolDefinition[] = [
-  ...pokemonToolDefinitions,
-  ...wallpaperToolDefinitions,
-];
+// ============================================
+// TOOLS DISPONIBLES (LangChain DynamicStructuredTool)
+// ============================================
 
-const TOOL_EXECUTORS: ToolRegistry = {
-  ...pokemonToolExecutors,
-  ...wallpaperToolExecutors,
-};
+const AGENT_TOOLS = [...pokemonTools, ...wallpaperTools];
 
 // ============================================
-// EXÉCUTION DE L'AGENT
+// HELPERS
+// ============================================
+
+function convertHistory(history: ChatMessage[]): BaseMessage[] {
+  return history
+    .filter(m => (m.role === 'user' || m.role === 'assistant') && !m.tool_calls)
+    .map(m => {
+      if (m.role === 'user') return new HumanMessage(m.content);
+      return new AIMessage(m.content);
+    });
+}
+
+// ============================================
+// EXÉCUTION DE L'AGENT (LangGraph createReactAgent)
 // ============================================
 
 export async function runWallpaperAgent(
   userMessage: string,
   conversationHistory: ChatMessage[] = []
 ): Promise<AgentResponse> {
-  const toolsUsed: string[] = [];
-  const actions: AgentAction[] = [];
-
-  const messages: ChatMessage[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    ...conversationHistory,
-    { role: 'user', content: userMessage },
-  ];
-
   console.log('\n' + '='.repeat(60));
-  console.log('🎨 WALLPAPER AGENT - Démarrage');
+  console.log('🎨 WALLPAPER AGENT (LangGraph) - Démarrage');
   console.log('='.repeat(60));
   console.log(`📝 Message: ${userMessage.substring(0, 100)}...`);
 
-  let maxIterations = 5;
-  let isFirstCall = true;
+  try {
+    // 1. Modèle LangChain
+    const model = getMistralModel({ temperature: 0.8, maxTokens: 2048 });
 
-  while (maxIterations > 0) {
-    maxIterations--;
-
-    const result = await chatCompletion({
-      model: 'mistral-small-latest',
-      messages,
+    // 2. Créer l'agent ReAct avec LangGraph
+    const agent = createReactAgent({
+      llm: model,
       tools: AGENT_TOOLS,
-      temperature: 0.8,
-      maxTokens: 2048,
-      toolChoice: isFirstCall ? 'any' : 'auto',
-    });
-    isFirstCall = false;
-
-    if (result.toolCalls.length === 0) {
-      console.log('✅ WALLPAPER AGENT - Réponse finale générée');
-      console.log(`📦 Actions collectées: ${actions.length}`);
-      return {
-        agent: 'wallpaper',
-        message: result.content || 'Je n\'ai pas pu générer de suggestion. Réessayez !',
-        toolsUsed,
-        actions: actions.length > 0 ? actions : undefined,
-        conversationHistory: messages,
-      };
-    }
-
-    messages.push({
-      role: 'assistant',
-      content: result.content || '',
-      tool_calls: result.toolCalls,
+      stateModifier: SYSTEM_PROMPT,
     });
 
-    for (const toolCall of result.toolCalls) {
-      const functionName = toolCall.function.name;
-      const functionArgs = JSON.parse(toolCall.function.arguments);
+    // 3. Construire les messages d'entrée
+    const inputMessages: BaseMessage[] = [
+      ...convertHistory(conversationHistory),
+      new HumanMessage(userMessage),
+    ];
 
-      console.log(`\n🔧 TOOL CALL: ${functionName}`);
-      console.log(`   Args: ${JSON.stringify(functionArgs)}`);
+    // 4. Invoquer l'agent
+    const result = await agent.invoke(
+      { messages: inputMessages },
+      { recursionLimit: 12 },
+    );
 
-      toolsUsed.push(functionName);
+    // 5. Extraire les actions wallpaper et la réponse finale
+    const actions: AgentAction[] = [];
+    const toolsUsed: string[] = [];
+    let finalMessage = '';
 
-      const executor = TOOL_EXECUTORS[functionName];
-      let toolResult: string;
+    for (const msg of result.messages) {
+      const msgType = (msg as any)._getType?.() || msg.constructor?.name?.toLowerCase();
+      const isTool = msgType === 'tool' || msg.constructor?.name === 'ToolMessage';
 
-      if (executor) {
+      if (isTool) {
+        const toolName = (msg as any).name || '';
+        toolsUsed.push(toolName);
+        console.log(`🔧 TOOL USED: ${toolName}`);
+
         try {
-          toolResult = await executor(functionArgs);
-          console.log(`✅ TOOL SUCCESS: ${toolResult.substring(0, 100)}...`);
-          
-          // Extract wallpaper actions from tool results
-          try {
-            const parsed = JSON.parse(toolResult);
-            if (functionName === 'suggest_wallpaper_theme' && parsed.pokemonId && !parsed.error) {
-              actions.push({
-                type: 'wallpaper_config',
-                data: {
-                  pokemonId: parsed.pokemonId,
-                  pokemonName: parsed.pokemonName,
-                  pokemonImage: parsed.pokemonImage || '',
-                  backgroundColor: parsed.theme?.backgroundColor || '#333',
-                  pattern: parsed.theme?.pattern || 'gradient',
-                  accentColor: parsed.theme?.accentColor || '#fff',
-                  showName: parsed.theme?.showName ?? true,
-                  showId: parsed.theme?.showId ?? true,
-                  style: parsed.theme?.style || 'vibrant',
-                  description: parsed.description || '',
-                },
-              });
-              console.log(`🎯 ACTION COLLECTED: wallpaper_config for ${parsed.pokemonName}`);
-            }
-          } catch { /* not parseable, skip */ }
-        } catch (error: any) {
-          toolResult = JSON.stringify({ error: error.message });
-          console.log(`❌ TOOL ERROR: ${error.message}`);
-        }
-      } else {
-        toolResult = JSON.stringify({ error: `Tool "${functionName}" non trouvé` });
+          const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+          const parsed = JSON.parse(content);
+          if (toolName === 'suggest_wallpaper_theme' && parsed.pokemonId && !parsed.error) {
+            actions.push({
+              type: 'wallpaper_config',
+              data: {
+                pokemonId: parsed.pokemonId,
+                pokemonName: parsed.pokemonName,
+                pokemonImage: parsed.pokemonImage || '',
+                backgroundColor: parsed.theme?.backgroundColor || '#333',
+                pattern: parsed.theme?.pattern || 'gradient',
+                accentColor: parsed.theme?.accentColor || '#fff',
+                showName: parsed.theme?.showName ?? true,
+                showId: parsed.theme?.showId ?? true,
+                style: parsed.theme?.style || 'vibrant',
+                description: parsed.description || '',
+              },
+            });
+            console.log(`🎯 ACTION COLLECTED: wallpaper_config for ${parsed.pokemonName}`);
+          }
+        } catch { /* observation not JSON, skip */ }
       }
 
-      messages.push({
-        role: 'tool',
-        content: toolResult,
-        tool_call_id: toolCall.id,
-        name: functionName,
-      });
+      const toolCalls = (msg as any).tool_calls;
+      const isAI = msgType === 'ai' || msg.constructor?.name === 'AIMessage';
+      if (isAI && (!toolCalls || toolCalls.length === 0)) {
+        finalMessage = typeof msg.content === 'string' ? msg.content : '';
+      }
     }
-  }
 
-  return {
-    agent: 'wallpaper',
-    message: 'La suggestion a rencontré un problème. Réessayez !',
-    toolsUsed,
-    actions: actions.length > 0 ? actions : undefined,
-    conversationHistory: messages,
-  };
+    console.log('✅ WALLPAPER AGENT - Réponse finale générée');
+    console.log(`📦 Actions collectées: ${actions.length}`);
+
+    const newHistory: ChatMessage[] = [
+      ...conversationHistory,
+      { role: 'user', content: userMessage },
+      { role: 'assistant', content: finalMessage },
+    ];
+
+    return {
+      agent: 'wallpaper',
+      message: finalMessage || 'Je n\'ai pas pu générer de suggestion. Réessayez !',
+      toolsUsed,
+      actions: actions.length > 0 ? actions : undefined,
+      conversationHistory: newHistory,
+    };
+  } catch (error: any) {
+    console.error('❌ WALLPAPER AGENT ERROR:', error.message);
+    return {
+      agent: 'wallpaper',
+      message: 'Une erreur est survenue lors de la suggestion. Réessayez !',
+      toolsUsed: [],
+      conversationHistory: [
+        ...conversationHistory,
+        { role: 'user', content: userMessage },
+      ],
+    };
+  }
 }

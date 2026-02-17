@@ -1,17 +1,19 @@
 /**
- * Orchestrator Agent 🎯
+ * Orchestrator Agent 🎯 (LangChain) 🦜🔗
  * 
  * Agent principal qui route les requêtes vers le bon agent spécialiste.
- * Implémente le pattern d'orchestration Multi-Agent vu en cours :
+ * Implémente le pattern d'orchestration Multi-Agent :
  * 
- *                    Orchestrator
+ *                    Orchestrator (simpleChat via ChatMistralAI)
  *                         |
  *         ┌───────────────┼───────────────┐
  *         │               │               │
  *    Team Agent      Quiz Agent    Wallpaper Agent
+ *   (AgentExecutor)  (AgentExecutor) (AgentExecutor)
  * 
- * L'orchestrateur utilise le LLM pour comprendre l'intention de l'utilisateur
- * et délègue au bon agent spécialiste (comme le generalist agent du cours).
+ * L'orchestrateur utilise simpleChat (LangChain ChatMistralAI) pour classifier
+ * les intentions, puis délègue aux agents spécialistes qui utilisent chacun
+ * createToolCallingAgent + AgentExecutor pour le tool calling automatique.
  */
 
 import { simpleChat } from './mistralClient';

@@ -1,14 +1,18 @@
 /**
- * Quiz Agent 🧠
+ * Quiz Agent 🧠 (LangChain) 🦜🔗
  * 
  * Agent spécialisé dans les quiz et trivia Pokémon.
+ * Utilise createReactAgent de @langchain/langgraph/prebuilt.
  * Génère des questions, explique les réponses, donne des faits amusants.
  */
 
-import { chatCompletion } from './mistralClient';
-import { pokemonToolDefinitions, pokemonToolExecutors } from './tools/pokemonTools';
-import { quizToolDefinitions, quizToolExecutors } from './tools/quizTools';
-import type { ChatMessage, ToolDefinition, ToolRegistry, AgentResponse, AgentAction } from './types';
+import { createReactAgent } from '@langchain/langgraph/prebuilt';
+import { HumanMessage, AIMessage } from '@langchain/core/messages';
+import type { BaseMessage } from '@langchain/core/messages';
+import { getMistralModel } from './mistralClient';
+import { pokemonTools } from './tools/pokemonTools';
+import { quizTools } from './tools/quizTools';
+import type { ChatMessage, AgentResponse, AgentAction } from './types';
 
 // ============================================
 // CONFIGURATION DE L'AGENT
@@ -56,132 +60,131 @@ D) Option 4
 
 💡 *Indice : [un indice subtil]*`;
 
-const AGENT_TOOLS: ToolDefinition[] = [
-  ...pokemonToolDefinitions,
-  ...quizToolDefinitions,
-];
+// ============================================
+// TOOLS DISPONIBLES (LangChain DynamicStructuredTool)
+// ============================================
 
-const TOOL_EXECUTORS: ToolRegistry = {
-  ...pokemonToolExecutors,
-  ...quizToolExecutors,
-};
+const AGENT_TOOLS = [...pokemonTools, ...quizTools];
 
 // ============================================
-// EXÉCUTION DE L'AGENT
+// HELPERS
+// ============================================
+
+function convertHistory(history: ChatMessage[]): BaseMessage[] {
+  return history
+    .filter(m => (m.role === 'user' || m.role === 'assistant') && !m.tool_calls)
+    .map(m => {
+      if (m.role === 'user') return new HumanMessage(m.content);
+      return new AIMessage(m.content);
+    });
+}
+
+// ============================================
+// EXÉCUTION DE L'AGENT (LangGraph createReactAgent)
 // ============================================
 
 export async function runQuizAgent(
   userMessage: string,
   conversationHistory: ChatMessage[] = []
 ): Promise<AgentResponse> {
-  const toolsUsed: string[] = [];
-  const actions: AgentAction[] = [];
-
-  const messages: ChatMessage[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    ...conversationHistory,
-    { role: 'user', content: userMessage },
-  ];
-
   console.log('\n' + '='.repeat(60));
-  console.log('🧠 QUIZ AGENT - Démarrage');
+  console.log('🧠 QUIZ AGENT (LangGraph) - Démarrage');
   console.log('='.repeat(60));
   console.log(`📝 Message: ${userMessage.substring(0, 100)}...`);
 
-  let maxIterations = 5;
-  let isFirstCall = true;
+  try {
+    // 1. Modèle LangChain
+    const model = getMistralModel({ temperature: 0.7, maxTokens: 2048 });
 
-  while (maxIterations > 0) {
-    maxIterations--;
-
-    const result = await chatCompletion({
-      model: 'mistral-small-latest',
-      messages,
+    // 2. Créer l'agent ReAct avec LangGraph
+    const agent = createReactAgent({
+      llm: model,
       tools: AGENT_TOOLS,
-      temperature: 0.7,
-      maxTokens: 2048,
-      toolChoice: isFirstCall ? 'any' : 'auto',
-    });
-    isFirstCall = false;
-
-    if (result.toolCalls.length === 0) {
-      console.log('✅ QUIZ AGENT - Réponse finale générée');
-      console.log(`📦 Actions collectées: ${actions.length}`);
-      return {
-        agent: 'quiz',
-        message: result.content || 'Je n\'ai pas pu générer le quiz. Réessayez !',
-        toolsUsed,
-        actions: actions.length > 0 ? actions : undefined,
-        conversationHistory: messages,
-      };
-    }
-
-    messages.push({
-      role: 'assistant',
-      content: result.content || '',
-      tool_calls: result.toolCalls,
+      stateModifier: SYSTEM_PROMPT,
     });
 
-    for (const toolCall of result.toolCalls) {
-      const functionName = toolCall.function.name;
-      const functionArgs = JSON.parse(toolCall.function.arguments);
+    // 3. Construire les messages d'entrée
+    const inputMessages: BaseMessage[] = [
+      ...convertHistory(conversationHistory),
+      new HumanMessage(userMessage),
+    ];
 
-      console.log(`\n🔧 TOOL CALL: ${functionName}`);
-      console.log(`   Args: ${JSON.stringify(functionArgs)}`);
+    // 4. Invoquer l'agent (LangGraph gère la boucle ReAct)
+    const result = await agent.invoke(
+      { messages: inputMessages },
+      { recursionLimit: 12 },
+    );
 
-      toolsUsed.push(functionName);
+    // 5. Extraire les actions quiz et la réponse finale
+    const actions: AgentAction[] = [];
+    const toolsUsed: string[] = [];
+    let finalMessage = '';
 
-      const executor = TOOL_EXECUTORS[functionName];
-      let toolResult: string;
+    for (const msg of result.messages) {
+      const msgType = (msg as any)._getType?.() || msg.constructor?.name?.toLowerCase();
+      const isTool = msgType === 'tool' || msg.constructor?.name === 'ToolMessage';
 
-      if (executor) {
+      if (isTool) {
+        const toolName = (msg as any).name || '';
+        toolsUsed.push(toolName);
+        console.log(`🔧 TOOL USED: ${toolName}`);
+
         try {
-          toolResult = await executor(functionArgs);
-          console.log(`✅ TOOL SUCCESS: ${toolResult.substring(0, 100)}...`);
-          
-          // Extract quiz actions from tool results
-          try {
-            const parsed = JSON.parse(toolResult);
-            if (functionName === 'generate_quiz_question' && parsed.question && !parsed.error) {
-              actions.push({
-                type: 'quiz_question',
-                data: {
-                  question: parsed.question,
-                  options: parsed.options,
-                  correctAnswer: parsed.correctAnswer,
-                  explanation: parsed.hint || '',
-                  pokemonImage: parsed.pokemonImage,
-                  pokemonName: parsed.pokemonName,
-                  hint: parsed.hint,
-                  difficulty: parsed.difficulty,
-                  mode: parsed.mode,
-                },
-              });
-              console.log(`🎯 ACTION COLLECTED: quiz_question`);
-            }
-          } catch { /* not parseable, skip */ }
-        } catch (error: any) {
-          toolResult = JSON.stringify({ error: error.message });
-          console.log(`❌ TOOL ERROR: ${error.message}`);
-        }
-      } else {
-        toolResult = JSON.stringify({ error: `Tool "${functionName}" non trouvé` });
+          const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+          const parsed = JSON.parse(content);
+          if (toolName === 'generate_quiz_question' && parsed.question && !parsed.error) {
+            actions.push({
+              type: 'quiz_question',
+              data: {
+                question: parsed.question,
+                options: parsed.options,
+                correctAnswer: parsed.correctAnswer,
+                explanation: parsed.hint || '',
+                pokemonImage: parsed.pokemonImage,
+                pokemonName: parsed.pokemonName,
+                hint: parsed.hint,
+                difficulty: parsed.difficulty,
+                mode: parsed.mode,
+              },
+            });
+            console.log(`🎯 ACTION COLLECTED: quiz_question`);
+          }
+        } catch { /* observation not JSON, skip */ }
       }
 
-      messages.push({
-        role: 'tool',
-        content: toolResult,
-        tool_call_id: toolCall.id,
-        name: functionName,
-      });
+      const toolCalls = (msg as any).tool_calls;
+      const isAI = msgType === 'ai' || msg.constructor?.name === 'AIMessage';
+      if (isAI && (!toolCalls || toolCalls.length === 0)) {
+        finalMessage = typeof msg.content === 'string' ? msg.content : '';
+      }
     }
-  }
 
-  return {
-    agent: 'quiz',
-    message: 'Le quiz a rencontré un problème. Réessayez !',
-    toolsUsed,
-    actions: actions.length > 0 ? actions : undefined,
-    conversationHistory: messages,
-  };
+    console.log('✅ QUIZ AGENT - Réponse finale générée');
+    console.log(`📦 Actions collectées: ${actions.length}`);
+
+    const newHistory: ChatMessage[] = [
+      ...conversationHistory,
+      { role: 'user', content: userMessage },
+      { role: 'assistant', content: finalMessage },
+    ];
+
+    return {
+      agent: 'quiz',
+      message: finalMessage || 'Je n\'ai pas pu générer le quiz. Réessayez !',
+      toolsUsed,
+      actions: actions.length > 0 ? actions : undefined,
+      conversationHistory: newHistory,
+    };
+  } catch (error: any) {
+    console.error('❌ QUIZ AGENT ERROR:', error.message);
+    return {
+      agent: 'quiz',
+      message: 'Une erreur est survenue lors de la génération du quiz. Réessayez !',
+      toolsUsed: [],
+      conversationHistory: [
+        ...conversationHistory,
+        { role: 'user', content: userMessage },
+      ],
+    };
+  }
 }

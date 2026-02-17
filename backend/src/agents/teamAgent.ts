@@ -1,18 +1,20 @@
 /**
- * Team Builder Agent 🛡️
+ * Team Builder Agent 🛡️ (LangChain) 🦜🔗
  * 
  * Agent stratégique spécialisé dans la construction et l'analyse d'équipes Pokémon.
- * Il utilise le pattern Tool Calling de LangChain (adapté en TypeScript) :
- * 1. Le LLM reçoit le message + les tools disponibles
- * 2. Le LLM décide quels tools appeler via function calling
- * 3. On exécute les tools et on renvoie les résultats
- * 4. Le LLM synthétise une réponse finale
+ * Utilise createReactAgent de @langchain/langgraph/prebuilt :
+ * 1. Le modèle ChatMistralAI est bindé avec les tools DynamicStructuredTool
+ * 2. createReactAgent crée un graphe LangGraph avec boucle ReAct automatique
+ * 3. On extrait les actions structurées (team_proposal) depuis les ToolMessages
  */
 
-import { chatCompletion } from './mistralClient';
-import { pokemonToolDefinitions, pokemonToolExecutors } from './tools/pokemonTools';
-import { teamToolDefinitions, teamToolExecutors } from './tools/teamTools';
-import type { ChatMessage, ToolDefinition, ToolRegistry, AgentResponse, AgentAction } from './types';
+import { createReactAgent } from '@langchain/langgraph/prebuilt';
+import { HumanMessage, AIMessage } from '@langchain/core/messages';
+import type { BaseMessage } from '@langchain/core/messages';
+import { getMistralModel } from './mistralClient';
+import { pokemonTools } from './tools/pokemonTools';
+import { teamTools } from './tools/teamTools';
+import type { ChatMessage, AgentResponse, AgentAction } from './types';
 
 // ============================================
 // CONFIGURATION DE L'AGENT
@@ -83,152 +85,147 @@ Quand l'utilisateur demande d'ANALYSER une équipe complète (6/6 Pokémon) :
 - Structure tes réponses : 📊 Composition → 🛡️ Couverture → ⚠️ Faiblesses → 💡 Recommandations → 🏆 Score
 - Rappelle-toi du contexte de la conversation. Si l'utilisateur dit "oui" après que tu as proposé de faire quelque chose, FAIS-LE immédiatement.`;
 
-// Tools disponibles pour cet agent
-const AGENT_TOOLS: ToolDefinition[] = [
-  ...pokemonToolDefinitions,
-  ...teamToolDefinitions,
-];
+// ============================================
+// TOOLS DISPONIBLES (LangChain DynamicStructuredTool)
+// ============================================
 
-// Executors combinés
-const TOOL_EXECUTORS: ToolRegistry = {
-  ...pokemonToolExecutors,
-  ...teamToolExecutors,
-};
+const AGENT_TOOLS = [...pokemonTools, ...teamTools];
 
 // ============================================
-// EXÉCUTION DE L'AGENT
+// HELPERS
 // ============================================
 
 /**
- * Exécute le Team Agent avec gestion du tool calling loop
- * Implémente le pattern vu en cours avec handle_tool_calls
+ * Convertit l'historique ChatMessage[] en messages LangChain BaseMessage[]
+ * Ne garde que les messages user/assistant (pas les tool calls internes)
+ */
+function convertHistory(history: ChatMessage[]): BaseMessage[] {
+  return history
+    .filter(m => (m.role === 'user' || m.role === 'assistant') && !m.tool_calls)
+    .map(m => {
+      if (m.role === 'user') return new HumanMessage(m.content);
+      return new AIMessage(m.content);
+    });
+}
+
+// ============================================
+// EXÉCUTION DE L'AGENT (LangGraph createReactAgent)
+// ============================================
+
+/**
+ * Exécute le Team Agent via LangGraph :
+ * 1. createReactAgent crée un graphe avec boucle ReAct automatique
+ * 2. Le graphe gère le tool calling (appeler tools → observer → décider)
+ * 3. On extrait les actions (team_proposal) depuis les ToolMessages du résultat
  */
 export async function runTeamAgent(
   userMessage: string,
   conversationHistory: ChatMessage[] = []
 ): Promise<AgentResponse> {
-  const toolsUsed: string[] = [];
-  const actions: AgentAction[] = [];
-  
-  // Construire les messages
-  const messages: ChatMessage[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    ...conversationHistory,
-    { role: 'user', content: userMessage },
-  ];
-
   console.log('\n' + '='.repeat(60));
-  console.log('🛡️ TEAM AGENT - Démarrage');
+  console.log('🛡️ TEAM AGENT (LangGraph) - Démarrage');
   console.log('='.repeat(60));
   console.log(`📝 Message: ${userMessage.substring(0, 100)}...`);
 
-  // Boucle de tool calling (max 5 itérations pour éviter les boucles infinies)
-  let maxIterations = 5;
-  let isFirstCall = true;
-  
-  while (maxIterations > 0) {
-    maxIterations--;
+  try {
+    // 1. Modèle LangChain avec paramètres spécifiques
+    const model = getMistralModel({ temperature: 0.4, maxTokens: 4096 });
 
-    const result = await chatCompletion({
-      model: 'mistral-small-latest',
-      messages,
+    // 2. Créer l'agent ReAct avec LangGraph
+    const agent = createReactAgent({
+      llm: model,
       tools: AGENT_TOOLS,
-      temperature: 0.4,
-      maxTokens: 4096,
-      toolChoice: isFirstCall ? 'any' : 'auto',
-    });
-    isFirstCall = false;
-
-    // Si l'assistant a une réponse finale (pas de tool calls)
-    if (result.toolCalls.length === 0) {
-      console.log('✅ TEAM AGENT - Réponse finale générée');
-      console.log(`📦 Actions collectées: ${actions.length}`);
-      return {
-        agent: 'team',
-        message: result.content || 'Je n\'ai pas pu analyser votre équipe. Pouvez-vous reformuler ?',
-        toolsUsed,
-        actions: actions.length > 0 ? actions : undefined,
-        conversationHistory: messages,
-      };
-    }
-
-    // Traiter les tool calls (pattern handle_tool_calls du cours)
-    messages.push({
-      role: 'assistant',
-      content: result.content || '',
-      tool_calls: result.toolCalls,
+      stateModifier: SYSTEM_PROMPT,
     });
 
-    for (const toolCall of result.toolCalls) {
-      const functionName = toolCall.function.name;
-      const functionArgs = JSON.parse(toolCall.function.arguments);
+    // 3. Construire les messages d'entrée (historique + nouveau message)
+    const inputMessages: BaseMessage[] = [
+      ...convertHistory(conversationHistory),
+      new HumanMessage(userMessage),
+    ];
 
-      console.log(`\n🔧 TOOL CALL: ${functionName}`);
-      console.log(`   Args: ${JSON.stringify(functionArgs)}`);
+    // 4. Invoquer l'agent (LangGraph gère la boucle ReAct)
+    const result = await agent.invoke(
+      { messages: inputMessages },
+      { recursionLimit: 12 },
+    );
 
-      toolsUsed.push(functionName);
+    // 5. Extraire les actions structurées et la réponse finale
+    const actions: AgentAction[] = [];
+    const toolsUsed: string[] = [];
+    let finalMessage = '';
 
-      // Exécuter le tool
-      const executor = TOOL_EXECUTORS[functionName];
-      let toolResult: string;
+    for (const msg of result.messages) {
+      // Collecter les noms d'outils utilisés et extraire les actions
+      if ((msg as any)._getType?.() === 'tool' || msg.constructor?.name === 'ToolMessage') {
+        const toolName = (msg as any).name || '';
+        toolsUsed.push(toolName);
+        console.log(`🔧 TOOL USED: ${toolName}`);
 
-      if (executor) {
         try {
-          toolResult = await executor(functionArgs);
-          console.log(`✅ TOOL SUCCESS: ${toolResult.substring(0, 100)}...`);
-          
-          // Extract actions from tool results
-          try {
-            const parsed = JSON.parse(toolResult);
-            if (parsed.__action_type === 'team_proposal' && !parsed.error) {
-              // Deduplication: check if we already have a proposal with the same pokemon
-              const newPokemonSet = (parsed.pokemon || []).map((p: any) => p.name).sort().join(',');
-              const isDuplicate = actions.some(a => {
-                if (a.type !== 'team_proposal') return false;
-                const existingSet = (a.data as any).pokemon.map((p: any) => p.name).sort().join(',');
-                return existingSet === newPokemonSet;
+          const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+          const parsed = JSON.parse(content);
+          if (parsed.__action_type === 'team_proposal' && !parsed.error) {
+            // Déduplication : vérifier si on a déjà cette composition
+            const newPokemonSet = (parsed.pokemon || []).map((p: any) => p.name).sort().join(',');
+            const isDuplicate = actions.some(a => {
+              if (a.type !== 'team_proposal') return false;
+              const existingSet = (a.data as any).pokemon.map((p: any) => p.name).sort().join(',');
+              return existingSet === newPokemonSet;
+            });
+
+            if (isDuplicate) {
+              console.log(`⚠️ DUPLICATE SKIPPED: team_proposal "${parsed.team_name}"`);
+            } else {
+              actions.push({
+                type: 'team_proposal',
+                data: {
+                  name: parsed.team_name,
+                  description: parsed.description,
+                  pokemon: parsed.pokemon,
+                },
               });
-              
-              if (isDuplicate) {
-                console.log(`⚠️ DUPLICATE SKIPPED: team_proposal "${parsed.team_name}" (same pokemon as existing proposal)`);
-              } else {
-                actions.push({
-                  type: 'team_proposal',
-                  data: {
-                    name: parsed.team_name,
-                    description: parsed.description,
-                    pokemon: parsed.pokemon,
-                  },
-                });
-                console.log(`🎯 ACTION COLLECTED: team_proposal "${parsed.team_name}"`);
-              }
+              console.log(`🎯 ACTION COLLECTED: team_proposal "${parsed.team_name}"`);
             }
-          } catch { /* not parseable, skip */ }
-        } catch (error: any) {
-          toolResult = JSON.stringify({ error: error.message });
-          console.log(`❌ TOOL ERROR: ${error.message}`);
-        }
-      } else {
-        toolResult = JSON.stringify({ error: `Tool "${functionName}" non trouvé` });
-        console.log(`❌ TOOL NOT FOUND: ${functionName}`);
+          }
+        } catch { /* observation not JSON, skip */ }
       }
 
-      // Ajouter le résultat du tool aux messages
-      messages.push({
-        role: 'tool',
-        content: toolResult,
-        tool_call_id: toolCall.id,
-        name: functionName,
-      });
+      // Le dernier AIMessage sans tool_calls est la réponse finale
+      const msgType = (msg as any)._getType?.() || msg.constructor?.name?.toLowerCase();
+      const toolCalls = (msg as any).tool_calls;
+      if ((msgType === 'ai' || msg.constructor?.name === 'AIMessage') && (!toolCalls || toolCalls.length === 0)) {
+        finalMessage = typeof msg.content === 'string' ? msg.content : '';
+      }
     }
-  }
 
-  // Si on sort de la boucle sans réponse
-  return {
-    agent: 'team',
-    message: 'L\'analyse a pris trop de temps. Pouvez-vous simplifier votre demande ?',
-    toolsUsed,
-    actions: actions.length > 0 ? actions : undefined,
-    conversationHistory: messages,
-  };
+    console.log('✅ TEAM AGENT - Réponse finale générée');
+    console.log(`📦 Actions collectées: ${actions.length}`);
+
+    // 6. Construire l'historique de conversation à retourner
+    const newHistory: ChatMessage[] = [
+      ...conversationHistory,
+      { role: 'user', content: userMessage },
+      { role: 'assistant', content: finalMessage },
+    ];
+
+    return {
+      agent: 'team',
+      message: finalMessage || 'Je n\'ai pas pu analyser votre équipe. Pouvez-vous reformuler ?',
+      toolsUsed,
+      actions: actions.length > 0 ? actions : undefined,
+      conversationHistory: newHistory,
+    };
+  } catch (error: any) {
+    console.error('❌ TEAM AGENT ERROR:', error.message);
+    return {
+      agent: 'team',
+      message: 'Une erreur est survenue lors de l\'analyse. Pouvez-vous reformuler ?',
+      toolsUsed: [],
+      conversationHistory: [
+        ...conversationHistory,
+        { role: 'user', content: userMessage },
+      ],
+    };
+  }
 }

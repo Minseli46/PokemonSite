@@ -1,83 +1,14 @@
 /**
- * Outils spécifiques au Wallpaper Agent
+ * Outils spécifiques au Wallpaper Agent (LangChain) 🦜🔗
  * Suggestions de thèmes, palettes de couleurs, combinaisons visuelles
+ * 
+ * Chaque tool est un DynamicStructuredTool avec schéma Zod.
  */
 
+import { DynamicStructuredTool } from '@langchain/core/tools';
+import { z } from 'zod';
 import axios from 'axios';
 import { POKEAPI_BASE_URL } from '../../constants';
-import type { ToolDefinition, ToolRegistry } from '../types';
-
-// ============================================
-// TOOL DEFINITIONS
-// ============================================
-
-export const wallpaperToolDefinitions: ToolDefinition[] = [
-  {
-    type: 'function',
-    function: {
-      name: 'suggest_wallpaper_theme',
-      description: 'Suggère un thème de fond d\'écran complet pour un Pokémon donné : couleur de fond, motif, palette, et description artistique.',
-      parameters: {
-        type: 'object',
-        properties: {
-          pokemon_name: {
-            type: 'string',
-            description: 'Le nom du Pokémon (en anglais)',
-          },
-          style: {
-            type: 'string',
-            description: 'Style souhaité (optionnel)',
-            enum: ['vibrant', 'pastel', 'dark', 'minimal', 'epic', 'cute'],
-          },
-        },
-        required: ['pokemon_name'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_type_color_palette',
-      description: 'Retourne la palette de couleurs associée à un type Pokémon (couleur principale, secondaire, accent, fond clair, fond sombre).',
-      parameters: {
-        type: 'object',
-        properties: {
-          type_name: {
-            type: 'string',
-            description: 'Le type Pokémon',
-            enum: [
-              'normal', 'fire', 'water', 'electric', 'grass', 'ice',
-              'fighting', 'poison', 'ground', 'flying', 'psychic', 'bug',
-              'rock', 'ghost', 'dragon', 'dark', 'steel', 'fairy',
-            ],
-          },
-        },
-        required: ['type_name'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'suggest_pokemon_duo',
-      description: 'Suggère des duos ou trios de Pokémon visuellement complémentaires pour créer un fond d\'écran harmonieux.',
-      parameters: {
-        type: 'object',
-        properties: {
-          base_pokemon: {
-            type: 'string',
-            description: 'Le Pokémon de base autour duquel faire la suggestion',
-          },
-          theme: {
-            type: 'string',
-            description: 'Thème optionnel : contraste, harmonie, evolution, rival, legendary',
-          },
-        },
-        required: ['base_pokemon'],
-      },
-    },
-  },
-];
 
 // ============================================
 // PALETTES DE COULEURS PAR TYPE
@@ -129,93 +60,8 @@ const CLASSIC_DUOS: Record<string, string[]> = {
 };
 
 // ============================================
-// TOOL EXECUTORS
+// HELPERS
 // ============================================
-
-async function suggestWallpaperTheme(args: Record<string, any>): Promise<string> {
-  try {
-    const { pokemon_name, style = 'vibrant' } = args;
-    
-    const response = await axios.get(`${POKEAPI_BASE_URL}/pokemon/${pokemon_name.toLowerCase()}`);
-    const pokemon = response.data;
-
-    const mainType = pokemon.types[0].type.name;
-    const palette = TYPE_PALETTES[mainType] || TYPE_PALETTES.normal;
-    const secondType = pokemon.types[1]?.type.name;
-    const secondPalette = secondType ? TYPE_PALETTES[secondType] : null;
-
-    // Choix du motif selon le style
-    const patternMap: Record<string, string> = {
-      vibrant: 'gradient',
-      pastel: 'dots',
-      dark: 'geometric',
-      minimal: 'gradient',
-      epic: 'waves',
-      cute: 'dots',
-    };
-
-    // Ajustement des couleurs selon le style
-    let backgroundColor = palette.primary;
-    let accentColor = secondPalette?.primary || palette.accent;
-
-    if (style === 'dark') {
-      backgroundColor = palette.darkBg;
-      accentColor = palette.primary;
-    } else if (style === 'pastel') {
-      backgroundColor = palette.lightBg;
-      accentColor = palette.secondary;
-    }
-
-    const result = {
-      pokemonId: pokemon.id,
-      pokemonName: pokemon.name,
-      pokemonImage: pokemon.sprites?.other?.['official-artwork']?.front_default,
-      types: pokemon.types.map((t: any) => t.type.name),
-      theme: {
-        style,
-        backgroundColor,
-        accentColor,
-        pattern: patternMap[style] || 'gradient',
-        showName: style !== 'minimal',
-        showId: style !== 'minimal' && style !== 'cute',
-      },
-      palette: {
-        primary: palette.primary,
-        secondary: palette.secondary,
-        accent: palette.accent,
-        emoji: palette.emoji,
-        ...(secondPalette && {
-          secondaryType: {
-            primary: secondPalette.primary,
-            secondary: secondPalette.secondary,
-            emoji: secondPalette.emoji,
-          },
-        }),
-      },
-      description: `Un fond d'écran ${style} mettant en valeur ${pokemon.name} avec les couleurs du type ${mainType}${secondType ? ` et ${secondType}` : ''}.`,
-    };
-
-    return JSON.stringify(result);
-  } catch (error: any) {
-    return JSON.stringify({ error: `Pokémon "${args.pokemon_name}" non trouvé` });
-  }
-}
-
-async function getTypeColorPalette(args: Record<string, any>): Promise<string> {
-  const { type_name } = args;
-  const palette = TYPE_PALETTES[type_name.toLowerCase()];
-
-  if (!palette) {
-    return JSON.stringify({ error: `Type "${type_name}" non reconnu` });
-  }
-
-  return JSON.stringify({
-    type: type_name,
-    ...palette,
-    cssGradient: `linear-gradient(135deg, ${palette.primary}, ${palette.secondary})`,
-    complementary: getComplementaryColor(palette.primary),
-  });
-}
 
 function getComplementaryColor(hex: string): string {
   const r = 255 - parseInt(hex.slice(1, 3), 16);
@@ -224,103 +70,201 @@ function getComplementaryColor(hex: string): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
-async function suggestPokemonDuo(args: Record<string, any>): Promise<string> {
-  try {
-    const { base_pokemon, theme = 'harmonie' } = args;
-    const baseName = base_pokemon.toLowerCase();
+// ============================================
+// LANGCHAIN TOOLS
+// ============================================
 
-    // Vérifier que le Pokémon existe
-    const response = await axios.get(`${POKEAPI_BASE_URL}/pokemon/${baseName}`);
-    const basePokemon = response.data;
-    const baseTypes = basePokemon.types.map((t: any) => t.type.name);
+const POKEMON_TYPES = [
+  'normal', 'fire', 'water', 'electric', 'grass', 'ice',
+  'fighting', 'poison', 'ground', 'flying', 'psychic', 'bug',
+  'rock', 'ghost', 'dragon', 'dark', 'steel', 'fairy',
+] as const;
 
-    let suggestions: string[] = [];
+export const suggestWallpaperThemeTool = new DynamicStructuredTool({
+  name: 'suggest_wallpaper_theme',
+  description: 'Suggère un thème de fond d\'écran complet pour un Pokémon donné : couleur de fond, motif, palette, et description artistique.',
+  schema: z.object({
+    pokemon_name: z.string().describe('Le nom du Pokémon (en anglais)'),
+    style: z.enum(['vibrant', 'pastel', 'dark', 'minimal', 'epic', 'cute']).optional().default('vibrant').describe('Style souhaité'),
+  }),
+  func: async ({ pokemon_name, style }) => {
+    try {
+      const s = style || 'vibrant';
+      const response = await axios.get(`${POKEAPI_BASE_URL}/pokemon/${pokemon_name.toLowerCase()}`);
+      const pokemon = response.data;
 
-    // Vérifier dans les duos classiques
-    if (CLASSIC_DUOS[baseName]) {
-      suggestions = [...CLASSIC_DUOS[baseName]];
-    }
+      const mainType = pokemon.types[0].type.name;
+      const palette = TYPE_PALETTES[mainType] || TYPE_PALETTES.normal;
+      const secondType = pokemon.types[1]?.type.name;
+      const secondPalette = secondType ? TYPE_PALETTES[secondType] : null;
 
-    // Compléter avec des suggestions thématiques
-    if (theme === 'contraste') {
-      // Pokémon de types opposés
-      const contrastTypes: Record<string, string> = {
-        fire: 'water', water: 'fire', grass: 'fire',
-        electric: 'ground', psychic: 'dark', fairy: 'dragon',
-        dragon: 'fairy', ghost: 'normal', ice: 'fire',
+      const patternMap: Record<string, string> = {
+        vibrant: 'gradient', pastel: 'dots', dark: 'geometric',
+        minimal: 'gradient', epic: 'waves', cute: 'dots',
       };
-      const contrastType = contrastTypes[baseTypes[0]];
-      if (contrastType) {
-        const typeRes = await axios.get(`${POKEAPI_BASE_URL}/type/${contrastType}`);
-        const candidates = typeRes.data.pokemon
-          .filter((p: any) => {
-            const id = parseInt(p.pokemon.url.split('/').filter(Boolean).pop());
-            return id <= 898; // Limiter aux Pokémon connus
-          })
-          .slice(0, 5)
-          .map((p: any) => p.pokemon.name);
-        suggestions = [...suggestions, ...candidates];
-      }
-    } else if (theme === 'evolution') {
-      // Chaîne d'évolution
-      try {
-        const speciesRes = await axios.get(`${POKEAPI_BASE_URL}/pokemon-species/${baseName}`);
-        const evoUrl = speciesRes.data.evolution_chain?.url;
-        if (evoUrl) {
-          const evoRes = await axios.get(evoUrl);
-          const evos: string[] = [];
-          const traverse = (node: any) => {
-            evos.push(node.species.name);
-            node.evolves_to?.forEach(traverse);
-          };
-          traverse(evoRes.data.chain);
-          suggestions = [...suggestions, ...evos.filter(e => e !== baseName)];
-        }
-      } catch { /* skip */ }
+
+      let backgroundColor = palette.primary;
+      let accentColor = secondPalette?.primary || palette.accent;
+
+      if (s === 'dark') { backgroundColor = palette.darkBg; accentColor = palette.primary; }
+      else if (s === 'pastel') { backgroundColor = palette.lightBg; accentColor = palette.secondary; }
+
+      const result = {
+        pokemonId: pokemon.id,
+        pokemonName: pokemon.name,
+        pokemonImage: pokemon.sprites?.other?.['official-artwork']?.front_default,
+        types: pokemon.types.map((t: any) => t.type.name),
+        theme: {
+          style: s,
+          backgroundColor,
+          accentColor,
+          pattern: patternMap[s] || 'gradient',
+          showName: s !== 'minimal',
+          showId: s !== 'minimal' && s !== 'cute',
+        },
+        palette: {
+          primary: palette.primary,
+          secondary: palette.secondary,
+          accent: palette.accent,
+          emoji: palette.emoji,
+          ...(secondPalette && {
+            secondaryType: {
+              primary: secondPalette.primary,
+              secondary: secondPalette.secondary,
+              emoji: secondPalette.emoji,
+            },
+          }),
+        },
+        description: `Un fond d'écran ${s} mettant en valeur ${pokemon.name} avec les couleurs du type ${mainType}${secondType ? ` et ${secondType}` : ''}.`,
+      };
+
+      return JSON.stringify(result);
+    } catch (error: any) {
+      return JSON.stringify({ error: `Pokémon "${pokemon_name}" non trouvé` });
     }
+  },
+});
 
-    // Dédupliquer et limiter
-    suggestions = [...new Set(suggestions)].filter(s => s !== baseName).slice(0, 5);
+export const getTypeColorPaletteTool = new DynamicStructuredTool({
+  name: 'get_type_color_palette',
+  description: 'Retourne la palette de couleurs associée à un type Pokémon (couleur principale, secondaire, accent, fond clair, fond sombre).',
+  schema: z.object({
+    type_name: z.enum(POKEMON_TYPES).describe('Le type Pokémon'),
+  }),
+  func: async ({ type_name }) => {
+    const palette = TYPE_PALETTES[type_name.toLowerCase()];
 
-    // Enrichir avec des données pour chaque suggestion
-    const enriched = [];
-    for (const name of suggestions.slice(0, 3)) {
-      try {
-        const res = await axios.get(`${POKEAPI_BASE_URL}/pokemon/${name}`);
-        const types = res.data.types.map((t: any) => t.type.name);
-        const mainPalette = TYPE_PALETTES[types[0]] || TYPE_PALETTES.normal;
-        enriched.push({
-          name,
-          id: res.data.id,
-          types,
-          color: mainPalette.primary,
-          image: res.data.sprites?.other?.['official-artwork']?.front_default,
-        });
-      } catch { /* skip */ }
+    if (!palette) {
+      return JSON.stringify({ error: `Type "${type_name}" non reconnu` });
     }
 
     return JSON.stringify({
-      basePokemon: {
-        name: baseName,
-        id: basePokemon.id,
-        types: baseTypes,
-        color: (TYPE_PALETTES[baseTypes[0]] || TYPE_PALETTES.normal).primary,
-        image: basePokemon.sprites?.other?.['official-artwork']?.front_default,
-      },
-      theme,
-      suggestions: enriched,
+      type: type_name,
+      ...palette,
+      cssGradient: `linear-gradient(135deg, ${palette.primary}, ${palette.secondary})`,
+      complementary: getComplementaryColor(palette.primary),
     });
-  } catch (error: any) {
-    return JSON.stringify({ error: `Pokémon "${args.base_pokemon}" non trouvé` });
-  }
-}
+  },
+});
+
+export const suggestPokemonDuoTool = new DynamicStructuredTool({
+  name: 'suggest_pokemon_duo',
+  description: 'Suggère des duos ou trios de Pokémon visuellement complémentaires pour créer un fond d\'écran harmonieux.',
+  schema: z.object({
+    base_pokemon: z.string().describe('Le Pokémon de base autour duquel faire la suggestion'),
+    theme: z.string().optional().default('harmonie').describe('Thème optionnel : contraste, harmonie, evolution, rival, legendary'),
+  }),
+  func: async ({ base_pokemon, theme }) => {
+    try {
+      const baseName = base_pokemon.toLowerCase();
+      const t = theme || 'harmonie';
+
+      const response = await axios.get(`${POKEAPI_BASE_URL}/pokemon/${baseName}`);
+      const basePokemon = response.data;
+      const baseTypes = basePokemon.types.map((t: any) => t.type.name);
+
+      let suggestions: string[] = [];
+
+      if (CLASSIC_DUOS[baseName]) {
+        suggestions = [...CLASSIC_DUOS[baseName]];
+      }
+
+      if (t === 'contraste') {
+        const contrastTypes: Record<string, string> = {
+          fire: 'water', water: 'fire', grass: 'fire',
+          electric: 'ground', psychic: 'dark', fairy: 'dragon',
+          dragon: 'fairy', ghost: 'normal', ice: 'fire',
+        };
+        const contrastType = contrastTypes[baseTypes[0]];
+        if (contrastType) {
+          const typeRes = await axios.get(`${POKEAPI_BASE_URL}/type/${contrastType}`);
+          const candidates = typeRes.data.pokemon
+            .filter((p: any) => {
+              const id = parseInt(p.pokemon.url.split('/').filter(Boolean).pop());
+              return id <= 898;
+            })
+            .slice(0, 5)
+            .map((p: any) => p.pokemon.name);
+          suggestions = [...suggestions, ...candidates];
+        }
+      } else if (t === 'evolution') {
+        try {
+          const speciesRes = await axios.get(`${POKEAPI_BASE_URL}/pokemon-species/${baseName}`);
+          const evoUrl = speciesRes.data.evolution_chain?.url;
+          if (evoUrl) {
+            const evoRes = await axios.get(evoUrl);
+            const evos: string[] = [];
+            const traverse = (node: any) => {
+              evos.push(node.species.name);
+              node.evolves_to?.forEach(traverse);
+            };
+            traverse(evoRes.data.chain);
+            suggestions = [...suggestions, ...evos.filter(e => e !== baseName)];
+          }
+        } catch { /* skip */ }
+      }
+
+      suggestions = [...new Set(suggestions)].filter(s => s !== baseName).slice(0, 5);
+
+      const enriched = [];
+      for (const name of suggestions.slice(0, 3)) {
+        try {
+          const res = await axios.get(`${POKEAPI_BASE_URL}/pokemon/${name}`);
+          const types = res.data.types.map((t: any) => t.type.name);
+          const mainPalette = TYPE_PALETTES[types[0]] || TYPE_PALETTES.normal;
+          enriched.push({
+            name,
+            id: res.data.id,
+            types,
+            color: mainPalette.primary,
+            image: res.data.sprites?.other?.['official-artwork']?.front_default,
+          });
+        } catch { /* skip */ }
+      }
+
+      return JSON.stringify({
+        basePokemon: {
+          name: baseName,
+          id: basePokemon.id,
+          types: baseTypes,
+          color: (TYPE_PALETTES[baseTypes[0]] || TYPE_PALETTES.normal).primary,
+          image: basePokemon.sprites?.other?.['official-artwork']?.front_default,
+        },
+        theme: t,
+        suggestions: enriched,
+      });
+    } catch (error: any) {
+      return JSON.stringify({ error: `Pokémon "${base_pokemon}" non trouvé` });
+    }
+  },
+});
 
 // ============================================
-// REGISTRY
+// EXPORT : Liste de tous les tools Wallpaper (pour LangChain)
 // ============================================
 
-export const wallpaperToolExecutors: ToolRegistry = {
-  suggest_wallpaper_theme: suggestWallpaperTheme,
-  get_type_color_palette: getTypeColorPalette,
-  suggest_pokemon_duo: suggestPokemonDuo,
-};
+export const wallpaperTools = [
+  suggestWallpaperThemeTool,
+  getTypeColorPaletteTool,
+  suggestPokemonDuoTool,
+];

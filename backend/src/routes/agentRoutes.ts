@@ -39,7 +39,7 @@ router.post('/chat', async (req: Request, res: Response) => {
       context
     );
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         agent: response.agent,
@@ -50,7 +50,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('❌ Agent Error:', error.message);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: error.message || 'Erreur interne de l\'agent',
     });
@@ -71,7 +71,7 @@ router.post('/team', async (req: Request, res: Response) => {
 
     const response = await runTeamAgent(message, conversationHistory || []);
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         agent: response.agent,
@@ -82,7 +82,7 @@ router.post('/team', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('❌ Team Agent Error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -100,7 +100,7 @@ router.post('/quiz', async (req: Request, res: Response) => {
 
     const response = await runQuizAgent(message, conversationHistory || []);
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         agent: response.agent,
@@ -111,7 +111,7 @@ router.post('/quiz', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('❌ Quiz Agent Error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -129,7 +129,7 @@ router.post('/wallpaper', async (req: Request, res: Response) => {
 
     const response = await runWallpaperAgent(message, conversationHistory || []);
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         agent: response.agent,
@@ -140,7 +140,7 @@ router.post('/wallpaper', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('❌ Wallpaper Agent Error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 

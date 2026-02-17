@@ -1,54 +1,28 @@
 /**
- * Types pour le système d'agents IA
- * Inspiré du pattern LangChain Tools + Multi-Agent Orchestration
+ * Types pour le système d'agents IA (LangChain) 🦜🔗
+ * 
+ * Avec LangChain, les tools sont définis via DynamicStructuredTool + Zod (pas besoin de ToolDefinition).
+ * Les agents utilisent createToolCallingAgent + AgentExecutor (pas besoin de ToolCall/ToolRegistry).
+ * Ce fichier garde uniquement les types métier : messages, actions, réponses d'agents.
  */
 
 // ============================================
-// TOOL DEFINITIONS (Format OpenAI/Mistral standard)
-// ============================================
-
-export interface ToolParameter {
-  type: string;
-  description: string;
-  enum?: string[];
-}
-
-export interface ToolFunction {
-  name: string;
-  description: string;
-  parameters: {
-    type: 'object';
-    properties: Record<string, ToolParameter>;
-    required: string[];
-  };
-}
-
-export interface ToolDefinition {
-  type: 'function';
-  function: ToolFunction;
-}
-
-// ============================================
-// MESSAGES (Format chat completions standard)
+// MESSAGES
 // ============================================
 
 export type MessageRole = 'system' | 'user' | 'assistant' | 'tool';
 
+/**
+ * Message de conversation simplifié.
+ * Avec LangChain, tool_calls est géré en interne par AgentExecutor,
+ * mais on garde le champ pour le filtrage dans convertHistory().
+ */
 export interface ChatMessage {
   role: MessageRole;
   content: string;
   name?: string;
-  tool_calls?: ToolCall[];
+  tool_calls?: any[];
   tool_call_id?: string;
-}
-
-export interface ToolCall {
-  id: string;
-  type: 'function';
-  function: {
-    name: string;
-    arguments: string;
-  };
 }
 
 // ============================================
@@ -56,15 +30,6 @@ export interface ToolCall {
 // ============================================
 
 export type AgentType = 'orchestrator' | 'team' | 'quiz' | 'wallpaper';
-
-export interface AgentConfig {
-  name: string;
-  type: AgentType;
-  description: string;
-  systemPrompt: string;
-  tools: ToolDefinition[];
-  model: string;
-}
 
 // ============================================
 // AGENT ACTIONS (structured data for frontend interactivity)
@@ -124,16 +89,6 @@ export interface AgentResponse {
   actions?: AgentAction[];
   data?: any;
   conversationHistory: ChatMessage[];
-}
-
-// ============================================
-// TOOL EXECUTION
-// ============================================
-
-export type ToolExecutor = (args: Record<string, any>) => Promise<string>;
-
-export interface ToolRegistry {
-  [toolName: string]: ToolExecutor;
 }
 
 // ============================================

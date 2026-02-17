@@ -1,5 +1,5 @@
 /**
- * Point d'entrée du système d'agents IA
+ * Point d'entrée du système d'agents IA (LangChain) 🦜🔗
  */
 
 export { orchestrate } from './orchestrator';
