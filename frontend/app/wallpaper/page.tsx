@@ -8,8 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Download, Palette, Sparkles, Bot, Check, X } from 'lucide-react'
-import { AIChatPanel } from '@/components/ai/ai-chat-panel'
+import { Download, Palette, Sparkles, Bot, Check, X, Loader2, Wand2, Moon, Flame } from 'lucide-react'
+import { useAgentAction } from '@/hooks/use-agent-action'
 import type { AgentAction, WallpaperConfigAction } from '@/hooks/use-agent'
 import { cn } from '@/lib/utils'
 
@@ -61,6 +61,13 @@ export default function WallpaperPage() {
       setAppliedSuggestion(index)
     }
   }, [])
+
+  // Hook IA contextuel
+  const { trigger: triggerWallpaperAI, isLoading: aiLoading, error: aiError } = useAgentAction({
+    agent: 'wallpaper',
+    autoPrompt: `L'utilisateur est sur la page de création de fonds d'écran. Il a actuellement ${pokemonName} (#${pokemonId}) avec la couleur ${backgroundColor} et le motif ${pattern}. Propose-lui 2-3 thèmes de wallpaper variés et inspirants qu'il peut appliquer directement. Utilise suggest_wallpaper_theme pour chaque proposition.`,
+    onActions: handleAiActions,
+  })
 
   const generateWallpaper = async () => {
     const canvas = canvasRef.current
@@ -524,29 +531,73 @@ export default function WallpaperPage() {
           </motion.div>
         )}
 
-        {/* AI Wallpaper Assistant */}
-        <AIChatPanel
-          agent="wallpaper"
-          title="🎨 Designer IA"
-          placeholder="Demandez des idées de fonds d'écran..."
-          accentColor="text-pink-500"
-          headerGradient="from-pink-500/20 to-rose-500/20"
-          icon={Sparkles}
-          context={{
-            currentPokemon: pokemonName,
-            currentColor: backgroundColor,
-            currentPattern: pattern,
-          }}
-          onActions={handleAiActions}
-          onApplyWallpaper={(config) => applyWallpaperConfig(config)}
-          initialMessage={`L'utilisateur est sur la page de création de fonds d'écran. Il a actuellement ${pokemonName} (#${pokemonId}) avec la couleur ${backgroundColor} et le motif ${pattern}. Propose-lui 2-3 thèmes de wallpaper variés et inspirants qu'il peut appliquer directement. Utilise suggest_wallpaper_theme pour chaque proposition.`}
-          quickActions={[
-            { label: '🔥 Thème Feu', message: 'Suggère-moi un fond d\'écran avec un Pokémon de type Feu. Donne-moi les couleurs HEX, le motif idéal et le Pokémon parfait.' },
-            { label: '💧 Thème Eau', message: 'Propose un wallpaper thème aquatique. Quel Pokémon Eau, quelle palette de couleurs et quel motif choisir ?' },
-            { label: '🌙 Thème Sombre', message: 'Je veux un fond d\'écran sombre et mystérieux. Quel Pokémon de type Ténèbres ou Spectre et quelle palette me recommandes-tu ?' },
-            { label: '✨ Harmoniser', message: `J'ai choisi ${pokemonName} avec la couleur ${backgroundColor}. Quelle combinaison de motif et d'options me recommandes-tu pour un résultat optimal ?` },
-          ]}
-        />
+        {/* AI Wallpaper Assistant — Actions contextuelles */}
+        <Card className="mt-8 border-pink-500/20 bg-gradient-to-r from-pink-500/5 to-rose-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500/20 to-rose-500/20 flex items-center justify-center">
+                <Bot className="h-4 w-4 text-pink-500" />
+              </div>
+              Designer IA
+              {aiLoading && (
+                <span className="flex items-center gap-1.5 text-sm font-normal text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Création...
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {aiError && (
+              <p className="text-sm text-destructive mb-3">⚠️ {aiError}</p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-pink-500/30 hover:bg-pink-500/10 hover:text-pink-600"
+                disabled={aiLoading}
+                onClick={() => triggerWallpaperAI('Suggère-moi 3 thèmes de wallpaper Pokémon variés (feu, eau, électrique). Utilise suggest_wallpaper_theme pour chaque.')}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Suggérer 3 thèmes
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-red-500/30 hover:bg-red-500/10 hover:text-red-600"
+                disabled={aiLoading}
+                onClick={() => triggerWallpaperAI('Suggère-moi un fond d\'ecran avec un Pokémon de type Feu. Donne-moi les couleurs HEX, le motif idéal et le Pokémon parfait. Utilise suggest_wallpaper_theme.')}
+              >
+                <Flame className="h-3.5 w-3.5" />
+                Thème Feu
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-indigo-500/30 hover:bg-indigo-500/10 hover:text-indigo-600"
+                disabled={aiLoading}
+                onClick={() => triggerWallpaperAI('Je veux un fond d\'ecran sombre et mystérieux avec un Pokémon Ténèbres ou Spectre. Utilise suggest_wallpaper_theme.')}
+              >
+                <Moon className="h-3.5 w-3.5" />
+                Thème Sombre
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-600"
+                disabled={aiLoading}
+                onClick={() => triggerWallpaperAI(`J'ai choisi ${pokemonName} avec la couleur ${backgroundColor} et le motif ${pattern}. Quelle combinaison optimale me recommandes-tu ? Utilise suggest_wallpaper_theme.`)}
+              >
+                <Wand2 className="h-3.5 w-3.5" />
+                Harmoniser mon design
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </main>
     </div>
   )

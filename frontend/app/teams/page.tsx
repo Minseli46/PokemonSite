@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Plus, Trash2, Edit2, Check, X, Users, Swords, 
-  ChevronRight, Sparkles, Bot, Shield
+  ChevronRight, Sparkles, Bot, Shield, Loader2, Wand2, Search, Zap
 } from 'lucide-react'
 import { Header } from '@/components/layout/header'
 import { TypeBadge } from '@/components/pokemon/type-badge'
@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTeam, type Team } from '@/hooks/use-team'
 import { formatPokemonName, formatPokemonId } from '@/lib/pokemon'
-import { AIChatPanel } from '@/components/ai/ai-chat-panel'
+import { useAgentAction } from '@/hooks/use-agent-action'
 import type { AgentAction, TeamProposalAction } from '@/hooks/use-agent'
 import { cn } from '@/lib/utils'
 
@@ -30,6 +30,7 @@ export default function TeamsPage() {
   const [aiProposals, setAiProposals] = useState<TeamProposalAction['data'][]>([])
   const [createdProposals, setCreatedProposals] = useState<Record<number, boolean>>({})
   const [creatingProposal, setCreatingProposal] = useState<number | null>(null)
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
 
   const handleAiActions = useCallback((actions: AgentAction[]) => {
     const teamActions = actions.filter(a => a.type === 'team_proposal') as TeamProposalAction[]
@@ -85,27 +86,35 @@ export default function TeamsPage() {
 
   const currentTeam = teams.find(t => t.id === currentTeamId)
 
-  // Proactive AI message based on team state
-  const initialMessage = useMemo(() => {
+  // Prompt IA contextuel basé sur l'état des équipes — cible l'équipe sélectionnée en priorité
+  const autoPrompt = useMemo(() => {
     if (teams.length === 0) {
       return 'L\'utilisateur n\'a aucune équipe. Propose-lui 3 équipes Pokémon variées et équilibrées qu\'il peut créer en un clic. Utilise build_team_proposal pour chaque proposition.'
     }
+    // Priorité 1 : l'équipe sélectionnée est incomplète
+    if (currentTeam && currentTeam.pokemon.length > 0 && currentTeam.pokemon.length < 6) {
+      const pokemonNames = currentTeam.pokemon.map(p => p.name).join(', ')
+      return `L'équipe sélectionnée "${currentTeam.name}" est incomplète (${currentTeam.pokemon.length}/6 : ${pokemonNames}). Propose 2 compositions complètes pour cette équipe en gardant ses Pokémon actuels + en ajoutant des compléments optimaux. Utilise build_team_proposal.`
+    }
+    // Priorité 2 : l'équipe sélectionnée est vide
+    if (currentTeam && currentTeam.pokemon.length === 0) {
+      return `L'équipe sélectionnée "${currentTeam.name}" est vide (0/6). Propose 3 compositions complètes et variées pour remplir cette équipe. Utilise build_team_proposal.`
+    }
+    // Priorité 3 : pas d'équipe sélectionnée, mais des équipes vides/incomplètes existent
     const incompleteTeams = teams.filter(t => t.pokemon.length > 0 && t.pokemon.length < 6)
-    const emptyTeams = teams.filter(t => t.pokemon.length === 0)
-    const parts: string[] = []
     if (incompleteTeams.length > 0) {
       const details = incompleteTeams.map(t => `"${t.name}" (${t.pokemon.length}/6 : ${t.pokemon.map(p => p.name).join(', ')})`).join(', ')
-      parts.push(`Équipes incomplètes : ${details}. Propose des compositions complètes pour chacune en gardant leurs Pokémon actuels + en ajoutant des compléments. Utilise build_team_proposal.`)
+      return `Équipes incomplètes : ${details}. Propose des compositions complètes pour chacune en gardant leurs Pokémon actuels + en ajoutant des compléments. Utilise build_team_proposal.`
     }
-    if (emptyTeams.length > 0) {
-      parts.push(`Équipes vides : ${emptyTeams.map(t => `"${t.name}"`).join(', ')}. Propose des compositions pour ces équipes. Utilise build_team_proposal.`)
-    }
-    if (parts.length === 0 && teams.length > 0) {
-      const teamSummary = teams.map(t => `"${t.name}" (${t.pokemon.map(p => p.name).join(', ')})`).join(' ; ')
-      parts.push(`Voici mes équipes : ${teamSummary}. Analyse-les brièvement et suggère des améliorations. Si une équipe peut être optimisée, propose des alternatives complètes via build_team_proposal.`)
-    }
-    return parts.join(' ')
-  }, [teams])
+    return undefined // pas d'auto-trigger si tout est complet
+  }, [teams, currentTeam])
+
+  // Hook IA contextuel (sans chat)
+  const { trigger: triggerAI, isLoading: aiLoading, message: aiMessage, error: aiError } = useAgentAction({
+    agent: 'team',
+    autoPrompt,
+    onActions: handleAiActions,
+  })
 
   return (
     <div className="min-h-screen bg-background">
@@ -482,29 +491,116 @@ export default function TeamsPage() {
           </motion.div>
         )}
 
-        {/* AI Team Assistant */}
-        <AIChatPanel
-          agent="team"
-          title="🛡️ Assistant Équipe IA"
-          placeholder="Demandez des conseils sur vos équipes..."
-          accentColor="text-blue-500"
-          headerGradient="from-blue-500/20 to-cyan-500/20"
-          icon={Users}
-          onActions={handleAiActions}
-          initialMessage={initialMessage}
-          context={{
-            currentTeam: currentTeam ? {
-              name: currentTeam.name,
-              pokemon: currentTeam.pokemon.map(p => ({ name: p.name, types: p.types })),
-            } : undefined,
-          }}
-          quickActions={[
-            { label: '🎲 Propose 3 équipes', message: 'Propose-moi 3 équipes compétitives variées avec 6 Pokémon chacune. Utilise build_team_proposal pour chaque proposition. Styles : offensive, défensive, équilibrée.' },
-            { label: '📊 Analyser', message: currentTeam && currentTeam.pokemon.length > 0 ? `Analyse mon équipe "${currentTeam.name}" composée de ${currentTeam.pokemon.map(p => p.name).join(', ')}. Quelles sont ses forces et faiblesses ?` : 'Je viens de créer une équipe. Propose-moi une composition forte et équilibrée de 6 Pokémon.' },
-            { label: '💡 Compléter', message: currentTeam && currentTeam.pokemon.length > 0 ? `Mon équipe "${currentTeam.name}" a : ${currentTeam.pokemon.map(p => p.name).join(', ')}. Quels Pokémon ajouter pour la compléter ?` : 'Propose-moi une équipe compétitive autour de Charizard.' },
-            { label: '🏆 Meilleure équipe', message: 'Propose-moi la meilleure équipe de 6 Pokémon avec une couverture de types parfaite et un bon équilibre attaque/défense.' },
-          ]}
-        />
+        {/* AI Team Assistant — Actions contextuelles */}
+        <Card className="mt-8 border-blue-500/20 bg-gradient-to-r from-blue-500/5 to-cyan-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
+                <Bot className="h-4 w-4 text-blue-500" />
+              </div>
+              Assistant IA
+              {aiLoading && (
+                <span className="flex items-center gap-1.5 text-sm font-normal text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Analyse en cours...
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {aiError && (
+              <p className="text-sm text-destructive mb-3">⚠️ {aiError}</p>
+            )}
+
+            {/* Analyse textuelle de l'IA */}
+            {(aiMessage || aiAnalysis) && !aiLoading && (
+              <div className="mb-4 p-4 rounded-lg bg-muted/50 border border-border">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Bot className="h-4 w-4 text-blue-500" />
+                    Analyse de l'IA
+                  </h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAiAnalysis(null)}
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
+                  {aiMessage || aiAnalysis}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-blue-500/30 hover:bg-blue-500/10 hover:text-blue-600"
+                disabled={aiLoading}
+                onClick={() => triggerAI('Propose-moi 3 équipes compétitives variées avec 6 Pokémon chacune. Utilise build_team_proposal pour chaque proposition. Styles : offensive, défensive, équilibrée.')}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Proposer 3 équipes
+              </Button>
+
+              {currentTeam && currentTeam.pokemon.length > 0 && currentTeam.pokemon.length < 6 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 border-green-500/30 hover:bg-green-500/10 hover:text-green-600"
+                  disabled={aiLoading}
+                  onClick={() => triggerAI(`Mon équipe "${currentTeam.name}" a : ${currentTeam.pokemon.map(p => p.name).join(', ')}. Propose 2 compositions complètes pour la compléter en gardant ces Pokémon. Utilise build_team_proposal.`)}
+                >
+                  <Wand2 className="h-3.5 w-3.5" />
+                  Compléter « {currentTeam.name} »
+                </Button>
+              )}
+
+              {currentTeam && currentTeam.pokemon.length === 6 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-600"
+                  disabled={aiLoading}
+                  onClick={() => {
+                    setAiAnalysis(null)
+                    triggerAI(`Analyse en détail mon équipe "${currentTeam.name}" composée de : ${currentTeam.pokemon.map(p => p.name).join(', ')}.
+
+Étape 1 — ANALYSE DÉTAILLÉE (dans ton message texte) :
+- 📊 Couverture des types : utilise calculate_team_coverage pour analyser les forces/faiblesses typiques
+- ⚖️ Équilibre : utilise evaluate_team_balance pour évaluer l'équilibre attaque/défense/vitesse
+- 🛡️ Forces de l'équipe
+- ⚠️ Faiblesses et vulnérabilités
+- 🏆 Score global sur 10
+
+Étape 2 — OPTIMISATIONS (après l'analyse) :
+Propose 2 alternatives optimisées via build_team_proposal qui corrigent les faiblesses identifiées.
+
+IMPORTANT : Donne d'abord l'analyse complète dans ton message AVANT de proposer les alternatives.`)
+                  }}
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  Analyser « {currentTeam.name} »
+                </Button>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-purple-500/30 hover:bg-purple-500/10 hover:text-purple-600"
+                disabled={aiLoading}
+                onClick={() => triggerAI('Propose-moi la meilleure équipe de 6 Pokémon avec une couverture de types parfaite et un bon équilibre attaque/défense. Utilise build_team_proposal.')}
+              >
+                <Zap className="h-3.5 w-3.5" />
+                Meilleure équipe
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </main>
     </div>
   )

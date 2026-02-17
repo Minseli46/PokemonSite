@@ -5,16 +5,17 @@ import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   HelpCircle, Trophy, RefreshCw, ChevronRight, 
-  CheckCircle2, XCircle, Timer, Zap, Brain, Sparkles, Bot, Lightbulb, X as XIcon
+  CheckCircle2, XCircle, Timer, Zap, Brain, Sparkles, Bot, Lightbulb, X as XIcon, Loader2
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { Header } from '@/components/layout/header'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { formatPokemonName, getPokemonImage, GENERATIONS } from '@/lib/pokemon'
 import type { Pokemon } from '@/lib/pokemon'
 import { cn } from '@/lib/utils'
-import { AIChatPanel } from '@/components/ai/ai-chat-panel'
+import { useAgentAction } from '@/hooks/use-agent-action'
 import type { AgentAction, QuizQuestionAction } from '@/hooks/use-agent'
 
 type QuizMode = 'name' | 'silhouette' | 'type' | 'stat'
@@ -117,23 +118,78 @@ export default function QuizPage() {
   const [aiScore, setAiScore] = useState(0)
   const [showAiHints, setShowAiHints] = useState<Record<number, boolean>>({})
 
+  // Adaptive difficulty tracking
+  const [aiDifficultyLevel, setAiDifficultyLevel] = useState(1) // 1=easy, 2=medium, 3=hard
+  const [aiConsecutiveCorrect, setAiConsecutiveCorrect] = useState(0)
+  const [aiTotalCorrect, setAiTotalCorrect] = useState(0)
+  const [aiTotalAnswered, setAiTotalAnswered] = useState(0)
+  const [aiRound, setAiRound] = useState(1)
+
+  const difficultyLabels: Record<number, { label: string; color: string; bgColor: string }> = {
+    1: { label: 'Facile', color: 'text-green-600', bgColor: 'bg-green-500/20' },
+    2: { label: 'Moyen', color: 'text-yellow-600', bgColor: 'bg-yellow-500/20' },
+    3: { label: 'Difficile', color: 'text-red-600', bgColor: 'bg-red-500/20' },
+  }
+  const difficultyKeys: Record<number, string> = { 1: 'easy', 2: 'medium', 3: 'hard' }
+
   const handleAiActions = useCallback((actions: AgentAction[]) => {
     const quizActions = actions.filter(a => a.type === 'quiz_question') as QuizQuestionAction[]
     if (quizActions.length > 0) {
-      setAiQuestions(prev => [...prev, ...quizActions.map(a => a.data)])
+      setAiQuestions(quizActions.map(a => a.data))
       setAiAnswers({})
       setAiScore(0)
       setShowAiHints({})
     }
   }, [])
 
+  // Build adaptive prompt based on current difficulty level
+  const getAdaptivePrompt = useCallback((numQuestions: number = 3) => {
+    const diff = difficultyKeys[aiDifficultyLevel] || 'easy'
+    const modes = aiDifficultyLevel === 1 
+      ? 'name, type' 
+      : aiDifficultyLevel === 2 
+        ? 'name, type, stat, generation' 
+        : 'ability, stat, evolution, generation'
+    return `Génère-moi ${numQuestions} questions de quiz Pokémon. Difficulté : ${diff}. Mélange les modes (${modes}). Utilise generate_quiz_question pour chaque question.`
+  }, [aiDifficultyLevel])
+
+  // Hook IA contextuel
+  const { trigger: triggerQuizAI, isLoading: aiLoading, error: aiError } = useAgentAction({
+    agent: 'quiz',
+    autoPrompt: 'Génère-moi 3 questions de quiz variées sur les Pokémon pour que l\'utilisateur puisse jouer directement. Utilise generate_quiz_question pour chaque question. Mélange les modes (name, type, ability) et commence en difficulté facile (easy).',
+    onActions: handleAiActions,
+  })
+
   const handleAiAnswer = useCallback((questionIndex: number, answer: string) => {
     if (aiAnswers[questionIndex] !== undefined) return
     setAiAnswers(prev => ({ ...prev, [questionIndex]: answer }))
     const question = aiQuestions[questionIndex]
-    if (question && answer === question.correctAnswer) {
+    const isCorrect = question && answer === question.correctAnswer
+
+    // Update adaptive tracking
+    setAiTotalAnswered(prev => prev + 1)
+    if (isCorrect) {
       setAiScore(prev => prev + 1)
+      setAiTotalCorrect(prev => prev + 1)
+      setAiConsecutiveCorrect(prev => {
+        const newStreak = prev + 1
+        // Level up after 3 consecutive correct answers
+        if (newStreak >= 3 && aiDifficultyLevel < 3) {
+          setAiDifficultyLevel(lvl => Math.min(3, lvl + 1))
+          return 0 // reset streak after level up
+        }
+        return newStreak
+      })
       confetti({ particleCount: 30, spread: 50, origin: { y: 0.7 } })
+    } else {
+      // Level down after 2 consecutive wrong (reset streak)
+      setAiConsecutiveCorrect(prev => {
+        if (prev <= -1 && aiDifficultyLevel > 1) {
+          setAiDifficultyLevel(lvl => Math.max(1, lvl - 1))
+          return 0
+        }
+        return prev > 0 ? -1 : prev - 1
+      })
     }
   }, [aiAnswers, aiQuestions])
 
@@ -498,11 +554,18 @@ export default function QuizPage() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                    Quiz IA
+                    Quiz IA Adaptatif
                     <Sparkles className="h-5 w-5 text-amber-500" />
+                    <span className={cn(
+                      'text-xs px-2 py-0.5 rounded-full font-medium',
+                      difficultyLabels[aiDifficultyLevel].bgColor,
+                      difficultyLabels[aiDifficultyLevel].color
+                    )}>
+                      Niv. {aiDifficultyLevel} — {difficultyLabels[aiDifficultyLevel].label}
+                    </span>
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    {Object.keys(aiAnswers).length}/{aiQuestions.length} répondu{Object.keys(aiAnswers).length > 1 ? 'es' : 'e'} — Score : {aiScore}/{aiQuestions.length}
+                    Round {aiRound} — {Object.keys(aiAnswers).length}/{aiQuestions.length} répondu{Object.keys(aiAnswers).length > 1 ? 'es' : 'e'} — Score total : {aiTotalCorrect}/{aiTotalAnswered}
                   </p>
                 </div>
               </div>
@@ -514,6 +577,11 @@ export default function QuizPage() {
                   setAiAnswers({})
                   setAiScore(0)
                   setShowAiHints({})
+                  setAiDifficultyLevel(1)
+                  setAiConsecutiveCorrect(0)
+                  setAiTotalCorrect(0)
+                  setAiTotalAnswered(0)
+                  setAiRound(1)
                 }}
                 className="text-muted-foreground hover:text-destructive gap-1"
               >
@@ -682,42 +750,150 @@ export default function QuizPage() {
                 className="bg-card border border-border rounded-xl p-6 text-center space-y-4"
               >
                 <Trophy className="h-12 w-12 mx-auto text-yellow-500" />
-                <h3 className="text-2xl font-bold">Quiz IA Terminé !</h3>
+                <h3 className="text-2xl font-bold">Round {aiRound} Terminé !</h3>
                 <div className="inline-flex items-center gap-4 bg-secondary rounded-lg p-4">
                   <div className="text-center">
                     <p className="text-2xl font-bold text-foreground">{aiScore}/{aiQuestions.length}</p>
-                    <p className="text-xs text-muted-foreground">Bonnes réponses</p>
+                    <p className="text-xs text-muted-foreground">Ce round</p>
                   </div>
                   <div className="w-px h-10 bg-border" />
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-foreground">
-                      {Math.round((aiScore / aiQuestions.length) * 100)}%
+                    <p className="text-2xl font-bold text-foreground">{aiTotalCorrect}/{aiTotalAnswered}</p>
+                    <p className="text-xs text-muted-foreground">Total</p>
+                  </div>
+                  <div className="w-px h-10 bg-border" />
+                  <div className="text-center">
+                    <p className={cn('text-2xl font-bold', difficultyLabels[aiDifficultyLevel].color)}>
+                      Niv. {aiDifficultyLevel}
                     </p>
-                    <p className="text-xs text-muted-foreground">Précision</p>
+                    <p className="text-xs text-muted-foreground">{difficultyLabels[aiDifficultyLevel].label}</p>
                   </div>
                 </div>
+
+                {/* Adaptive feedback */}
+                <p className="text-sm text-muted-foreground">
+                  {aiScore === aiQuestions.length
+                    ? aiDifficultyLevel < 3
+                      ? '🔥 Parfait ! Le niveau monte pour le prochain round !'
+                      : '🏆 Impressionnant ! Tu es au niveau maximum !'
+                    : aiScore >= aiQuestions.length * 0.6
+                      ? '💪 Bien joué ! Continue comme ça.'
+                      : aiDifficultyLevel > 1
+                        ? '💡 Le niveau baisse un peu pour le prochain round.'
+                        : '📚 Continue à t\u0027entraîner, tu vas progresser !'}
+                </p>
+
+                {/* Continue button — triggers next round at current adaptive level */}
+                <Button
+                  onClick={() => {
+                    setAiRound(prev => prev + 1)
+                    triggerQuizAI(getAdaptivePrompt(3))
+                  }}
+                  disabled={aiLoading}
+                  size="lg"
+                  className="gap-2"
+                >
+                  {aiLoading ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Génération...</>
+                  ) : (
+                    <><ChevronRight className="h-5 w-5" /> Continuer (Niv. {aiDifficultyLevel})</>
+                  )}
+                </Button>
               </motion.div>
             )}
           </motion.div>
         )}
 
-        {/* AI Quiz Assistant */}
-        <AIChatPanel
-          agent="quiz"
-          title="🧠 Quiz Master IA"
-          placeholder="Posez vos questions quiz ou demandez un défi..."
-          accentColor="text-amber-500"
-          headerGradient="from-amber-500/20 to-orange-500/20"
-          icon={Brain}
-          onActions={handleAiActions}
-          initialMessage="Génère-moi 3 questions de quiz variées sur les Pokémon pour que l'utilisateur puisse jouer directement. Utilise generate_quiz_question pour chaque question. Mélange les modes (name, type, ability) et les difficultés."
-          quickActions={[
-            { label: '❓ Quiz rapide', message: 'Génère-moi 3 questions de quiz interactif sur les Pokémon avec des choix multiples. Utilise generate_quiz_question pour chaque question. Difficulté facile.' },
-            { label: '🔥 Quiz Types', message: 'Génère-moi 2 questions de quiz sur les types de Pokémon. Mode: type, difficulté: medium.' },
-            { label: '📚 Fun fact', message: 'Donne-moi un fun fact surprenant sur un Pokémon aléatoire.' },
-            { label: '🏆 Défi Expert', message: 'Génère-moi une question de quiz très difficile sur les Pokémon. Mode: ability, difficulté: hard.' },
-          ]}
-        />
+        {/* AI Quiz Assistant — Actions contextuelles */}
+        <Card className="mt-8 border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-orange-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center">
+                <Bot className="h-4 w-4 text-amber-500" />
+              </div>
+              Quiz Master IA
+              {aiLoading && (
+                <span className="flex items-center gap-1.5 text-sm font-normal text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Génération...
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {aiError && (
+              <p className="text-sm text-destructive mb-3">⚠️ {aiError}</p>
+            )}
+            {/* Current adaptive level indicator */}
+            {aiTotalAnswered > 0 && (
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Niveau adaptatif :</span>
+                <div className="flex gap-1">
+                  {[1, 2, 3].map(lvl => (
+                    <div
+                      key={lvl}
+                      className={cn(
+                        'w-8 h-2 rounded-full transition-colors',
+                        lvl <= aiDifficultyLevel
+                          ? lvl === 1 ? 'bg-green-500' : lvl === 2 ? 'bg-yellow-500' : 'bg-red-500'
+                          : 'bg-muted'
+                      )}
+                    />
+                  ))}
+                </div>
+                <span className={cn('text-xs font-medium', difficultyLabels[aiDifficultyLevel].color)}>
+                  {difficultyLabels[aiDifficultyLevel].label}
+                </span>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-600"
+                disabled={aiLoading}
+                onClick={() => triggerQuizAI(getAdaptivePrompt(3))}
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                Quiz adaptatif (3 questions)
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-red-500/30 hover:bg-red-500/10 hover:text-red-600"
+                disabled={aiLoading}
+                onClick={() => triggerQuizAI(`Génère-moi 2 questions de quiz sur les types de Pokémon. Mode: type, difficulté: ${difficultyKeys[aiDifficultyLevel]}. Utilise generate_quiz_question.`)}
+              >
+                <Zap className="h-3.5 w-3.5" />
+                Quiz Types
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-purple-500/30 hover:bg-purple-500/10 hover:text-purple-600"
+                disabled={aiLoading}
+                onClick={() => triggerQuizAI('Génère-moi une question de quiz très difficile sur les Pokémon. Mode: ability, difficulté: hard. Utilise generate_quiz_question.')}
+              >
+                <Trophy className="h-3.5 w-3.5" />
+                Défi Expert
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-green-500/30 hover:bg-green-500/10 hover:text-green-600"
+                disabled={aiLoading}
+                onClick={() => triggerQuizAI(getAdaptivePrompt(5))}
+              >
+                <Brain className="h-3.5 w-3.5" />
+                Marathon 5 questions
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </main>
     </div>
   )
