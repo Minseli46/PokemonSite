@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Sun, Moon, Users, Swords, HelpCircle, Menu, X, Newspaper, Sparkles, CircleSlash2 } from 'lucide-react'
+import { Sun, Moon, Users, Swords, HelpCircle, Menu, X, Newspaper, Sparkles, CircleSlash2, Bot } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/hooks/use-theme'
@@ -18,6 +18,7 @@ const navItems = [
   { href: '/events', label: 'Actualités', icon: Newspaper },
   { href: '/wallpaper', label: 'Fond d\'écran', icon: Sparkles },
   { href: '/quiz', label: 'Quiz', icon: HelpCircle },
+  { href: '/agent', label: 'IA Agent', icon: Bot },
 ]
 
 export function Header() {

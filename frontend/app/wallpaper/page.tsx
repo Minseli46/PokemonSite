@@ -1,12 +1,17 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import NextImage from 'next/image'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Download, Palette, Sparkles } from 'lucide-react'
+import { Download, Palette, Sparkles, Bot, Check, X } from 'lucide-react'
+import { AIChatPanel } from '@/components/ai/ai-chat-panel'
+import type { AgentAction, WallpaperConfigAction } from '@/hooks/use-agent'
+import { cn } from '@/lib/utils'
 
 const patterns = [
   { value: 'gradient', label: 'Dégradé', icon: '🌈' },
@@ -32,6 +37,30 @@ export default function WallpaperPage() {
   const [showName, setShowName] = useState(true)
   const [showId, setShowId] = useState(true)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  // AI-generated wallpaper suggestions
+  const [aiSuggestions, setAiSuggestions] = useState<WallpaperConfigAction['data'][]>([])
+  const [appliedSuggestion, setAppliedSuggestion] = useState<number | null>(null)
+
+  const handleAiActions = useCallback((actions: AgentAction[]) => {
+    const wallpaperActions = actions.filter(a => a.type === 'wallpaper_config') as WallpaperConfigAction[]
+    if (wallpaperActions.length > 0) {
+      setAiSuggestions(wallpaperActions.map(a => a.data))
+      setAppliedSuggestion(null)
+    }
+  }, [])
+
+  const applyWallpaperConfig = useCallback((config: WallpaperConfigAction['data'], index?: number) => {
+    setPokemonId(config.pokemonId)
+    setPokemonName(config.pokemonName)
+    setBackgroundColor(config.backgroundColor)
+    setPattern(config.pattern as 'gradient' | 'dots' | 'waves' | 'geometric')
+    setShowName(config.showName)
+    setShowId(config.showId)
+    if (index !== undefined) {
+      setAppliedSuggestion(index)
+    }
+  }, [])
 
   const generateWallpaper = async () => {
     const canvas = canvasRef.current
@@ -321,6 +350,203 @@ export default function WallpaperPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* AI-Generated Wallpaper Suggestions — Main Page Area */}
+        {aiSuggestions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-10 space-y-6"
+          >
+            {/* AI Suggestions Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500/20 to-rose-500/20 flex items-center justify-center">
+                  <Bot className="h-5 w-5 text-pink-500" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                    Suggestions de l'IA
+                    <Sparkles className="h-5 w-5 text-pink-500" />
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    {aiSuggestions.length} thème{aiSuggestions.length > 1 ? 's' : ''} proposé{aiSuggestions.length > 1 ? 's' : ''} — Cliquez pour appliquer
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setAiSuggestions([])
+                  setAppliedSuggestion(null)
+                }}
+                className="text-muted-foreground hover:text-destructive gap-1"
+              >
+                <X className="h-4 w-4" />
+                Fermer
+              </Button>
+            </div>
+
+            {/* Suggestions Grid */}
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {aiSuggestions.map((suggestion, idx) => {
+                const isApplied = appliedSuggestion === idx
+
+                return (
+                  <motion.div
+                    key={`ai-wallpaper-${idx}`}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
+                    className={cn(
+                      'bg-card border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer',
+                      isApplied && 'ring-2 ring-green-500/50'
+                    )}
+                    onClick={() => applyWallpaperConfig(suggestion, idx)}
+                  >
+                    {/* Preview with background color */}
+                    <div 
+                      className="relative h-40 flex items-center justify-center overflow-hidden"
+                      style={{ backgroundColor: suggestion.backgroundColor }}
+                    >
+                      {/* Pattern overlay */}
+                      {suggestion.pattern === 'dots' && (
+                        <div className="absolute inset-0 opacity-20"
+                          style={{
+                            backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
+                            backgroundSize: '20px 20px',
+                          }}
+                        />
+                      )}
+                      {suggestion.pattern === 'waves' && (
+                        <div className="absolute inset-0 opacity-15"
+                          style={{
+                            backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 10px, rgba(255,255,255,0.3) 10px, rgba(255,255,255,0.3) 12px)`,
+                          }}
+                        />
+                      )}
+                      {suggestion.pattern === 'geometric' && (
+                        <div className="absolute inset-0 opacity-15"
+                          style={{
+                            backgroundImage: `linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,0.1) 25%, transparent 25%)`,
+                            backgroundSize: '40px 40px',
+                          }}
+                        />
+                      )}
+                      
+                      {/* Pokémon image */}
+                      {suggestion.pokemonImage && (
+                        <div className="relative w-28 h-28 z-10">
+                          <NextImage
+                            src={suggestion.pokemonImage}
+                            alt={suggestion.pokemonName}
+                            fill
+                            className="object-contain drop-shadow-lg"
+                            sizes="112px"
+                            unoptimized
+                          />
+                        </div>
+                      )}
+
+                      {/* Applied badge */}
+                      {isApplied && (
+                        <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1">
+                          <Check className="h-4 w-4" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="px-4 py-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-foreground capitalize">
+                          {suggestion.pokemonName}
+                        </span>
+                        <span className="text-xs text-muted-foreground capitalize">
+                          {suggestion.style}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                        {suggestion.description}
+                      </p>
+                      
+                      {/* Color swatches */}
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-6 h-6 rounded-full border border-border" 
+                          style={{ backgroundColor: suggestion.backgroundColor }}
+                          title="Couleur de fond"
+                        />
+                        {suggestion.accentColor && (
+                          <div 
+                            className="w-6 h-6 rounded-full border border-border" 
+                            style={{ backgroundColor: suggestion.accentColor }}
+                            title="Couleur d'accent"
+                          />
+                        )}
+                        <span className="text-[10px] text-muted-foreground ml-auto capitalize">
+                          {suggestion.pattern}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Apply Button */}
+                    <div className="px-4 py-3 border-t border-border">
+                      <Button
+                        className={cn(
+                          'w-full gap-2',
+                          isApplied && 'bg-green-600 hover:bg-green-700'
+                        )}
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          applyWallpaperConfig(suggestion, idx)
+                        }}
+                      >
+                        {isApplied ? (
+                          <>
+                            <Check className="h-4 w-4" />
+                            Thème appliqué !
+                          </>
+                        ) : (
+                          <>
+                            <Palette className="h-4 w-4" />
+                            Appliquer ce thème
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        {/* AI Wallpaper Assistant */}
+        <AIChatPanel
+          agent="wallpaper"
+          title="🎨 Designer IA"
+          placeholder="Demandez des idées de fonds d'écran..."
+          accentColor="text-pink-500"
+          headerGradient="from-pink-500/20 to-rose-500/20"
+          icon={Sparkles}
+          context={{
+            currentPokemon: pokemonName,
+            currentColor: backgroundColor,
+            currentPattern: pattern,
+          }}
+          onActions={handleAiActions}
+          onApplyWallpaper={(config) => applyWallpaperConfig(config)}
+          initialMessage={`L'utilisateur est sur la page de création de fonds d'écran. Il a actuellement ${pokemonName} (#${pokemonId}) avec la couleur ${backgroundColor} et le motif ${pattern}. Propose-lui 2-3 thèmes de wallpaper variés et inspirants qu'il peut appliquer directement. Utilise suggest_wallpaper_theme pour chaque proposition.`}
+          quickActions={[
+            { label: '🔥 Thème Feu', message: 'Suggère-moi un fond d\'écran avec un Pokémon de type Feu. Donne-moi les couleurs HEX, le motif idéal et le Pokémon parfait.' },
+            { label: '💧 Thème Eau', message: 'Propose un wallpaper thème aquatique. Quel Pokémon Eau, quelle palette de couleurs et quel motif choisir ?' },
+            { label: '🌙 Thème Sombre', message: 'Je veux un fond d\'écran sombre et mystérieux. Quel Pokémon de type Ténèbres ou Spectre et quelle palette me recommandes-tu ?' },
+            { label: '✨ Harmoniser', message: `J'ai choisi ${pokemonName} avec la couleur ${backgroundColor}. Quelle combinaison de motif et d'options me recommandes-tu pour un résultat optimal ?` },
+          ]}
+        />
       </main>
     </div>
   )

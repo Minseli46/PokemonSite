@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   HelpCircle, Trophy, RefreshCw, ChevronRight, 
-  CheckCircle2, XCircle, Timer, Zap, Brain
+  CheckCircle2, XCircle, Timer, Zap, Brain, Sparkles, Bot, Lightbulb, X as XIcon
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { Header } from '@/components/layout/header'
@@ -14,6 +14,8 @@ import { Progress } from '@/components/ui/progress'
 import { formatPokemonName, getPokemonImage, GENERATIONS } from '@/lib/pokemon'
 import type { Pokemon } from '@/lib/pokemon'
 import { cn } from '@/lib/utils'
+import { AIChatPanel } from '@/components/ai/ai-chat-panel'
+import type { AgentAction, QuizQuestionAction } from '@/hooks/use-agent'
 
 type QuizMode = 'name' | 'silhouette' | 'type' | 'stat'
 type Difficulty = 'easy' | 'medium' | 'hard'
@@ -108,6 +110,32 @@ export default function QuizPage() {
   const [showResult, setShowResult] = useState(false)
   const [timeLeft, setTimeLeft] = useState(15)
   const [streak, setStreak] = useState(0)
+  
+  // AI-generated quiz questions
+  const [aiQuestions, setAiQuestions] = useState<QuizQuestionAction['data'][]>([])
+  const [aiAnswers, setAiAnswers] = useState<Record<number, string>>({})
+  const [aiScore, setAiScore] = useState(0)
+  const [showAiHints, setShowAiHints] = useState<Record<number, boolean>>({})
+
+  const handleAiActions = useCallback((actions: AgentAction[]) => {
+    const quizActions = actions.filter(a => a.type === 'quiz_question') as QuizQuestionAction[]
+    if (quizActions.length > 0) {
+      setAiQuestions(prev => [...prev, ...quizActions.map(a => a.data)])
+      setAiAnswers({})
+      setAiScore(0)
+      setShowAiHints({})
+    }
+  }, [])
+
+  const handleAiAnswer = useCallback((questionIndex: number, answer: string) => {
+    if (aiAnswers[questionIndex] !== undefined) return
+    setAiAnswers(prev => ({ ...prev, [questionIndex]: answer }))
+    const question = aiQuestions[questionIndex]
+    if (question && answer === question.correctAnswer) {
+      setAiScore(prev => prev + 1)
+      confetti({ particleCount: 30, spread: 50, origin: { y: 0.7 } })
+    }
+  }, [aiAnswers, aiQuestions])
 
   const diffConfig = DIFFICULTIES.find(d => d.id === difficulty)!
 
@@ -454,6 +482,242 @@ export default function QuizPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* AI-Generated Quiz Questions — Main Page Area */}
+        {aiQuestions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-10 space-y-6"
+          >
+            {/* AI Quiz Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center">
+                  <Bot className="h-5 w-5 text-amber-500" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                    Quiz IA
+                    <Sparkles className="h-5 w-5 text-amber-500" />
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    {Object.keys(aiAnswers).length}/{aiQuestions.length} répondu{Object.keys(aiAnswers).length > 1 ? 'es' : 'e'} — Score : {aiScore}/{aiQuestions.length}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setAiQuestions([])
+                  setAiAnswers({})
+                  setAiScore(0)
+                  setShowAiHints({})
+                }}
+                className="text-muted-foreground hover:text-destructive gap-1"
+              >
+                <XIcon className="h-4 w-4" />
+                Fermer
+              </Button>
+            </div>
+
+            {/* AI Score Progress */}
+            {Object.keys(aiAnswers).length > 0 && (
+              <Progress 
+                value={(Object.keys(aiAnswers).length / aiQuestions.length) * 100} 
+                className="h-2" 
+              />
+            )}
+
+            {/* Questions Grid */}
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {aiQuestions.map((q, idx) => {
+                const answered = aiAnswers[idx] !== undefined
+                const selectedOpt = aiAnswers[idx]
+                const isCorrect = selectedOpt === q.correctAnswer
+                const optionLabels = ['A', 'B', 'C', 'D']
+
+                return (
+                  <motion.div
+                    key={`ai-q-${idx}`}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
+                    className={cn(
+                      'bg-card border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow',
+                      answered && isCorrect && 'ring-2 ring-green-500/50',
+                      answered && !isCorrect && 'ring-2 ring-red-500/50'
+                    )}
+                  >
+                    {/* Question Header */}
+                    <div className="px-4 py-3 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border-b border-border">
+                      <div className="flex items-start gap-2">
+                        <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary flex-shrink-0 mt-0.5">
+                          {idx + 1}
+                        </div>
+                        <span className="text-sm font-semibold text-foreground leading-snug">
+                          {q.question}
+                        </span>
+                      </div>
+                      {q.difficulty && (
+                        <div className="mt-2 flex gap-1.5">
+                          <span className={cn(
+                            'text-xs px-2 py-0.5 rounded-full font-medium',
+                            q.difficulty === 'easy' && 'bg-green-500/20 text-green-600',
+                            q.difficulty === 'medium' && 'bg-yellow-500/20 text-yellow-600',
+                            q.difficulty === 'hard' && 'bg-red-500/20 text-red-600',
+                          )}>
+                            {q.difficulty === 'easy' ? 'Facile' : q.difficulty === 'medium' ? 'Moyen' : 'Difficile'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Pokémon Image */}
+                    {q.pokemonImage && (
+                      <div className="flex justify-center py-3 bg-muted/20">
+                        <div className="relative w-24 h-24">
+                          <Image
+                            src={q.pokemonImage}
+                            alt={q.pokemonName || 'Pokémon'}
+                            fill
+                            className={cn(
+                              'object-contain transition-all',
+                              !answered && 'brightness-0' // Silhouette mode
+                            )}
+                            sizes="96px"
+                            unoptimized
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Options */}
+                    <div className="px-4 py-3 flex flex-col gap-2">
+                      {q.options.map((option, i) => {
+                        const isSelected = selectedOpt === option
+                        const isTheCorrect = option === q.correctAnswer
+                        
+                        let optionStyle = 'bg-muted/30 hover:bg-muted/60 border-transparent'
+                        if (answered) {
+                          if (isTheCorrect) {
+                            optionStyle = 'bg-green-500/15 border-green-500/40 text-green-700 dark:text-green-400'
+                          } else if (isSelected && !isTheCorrect) {
+                            optionStyle = 'bg-red-500/15 border-red-500/40 text-red-700 dark:text-red-400'
+                          } else {
+                            optionStyle = 'bg-muted/20 border-transparent opacity-50'
+                          }
+                        }
+
+                        return (
+                          <button
+                            key={`${option}-${i}`}
+                            onClick={() => handleAiAnswer(idx, option)}
+                            disabled={answered}
+                            className={cn(
+                              'flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition-all text-sm',
+                              optionStyle,
+                              !answered && 'cursor-pointer active:scale-[0.98]'
+                            )}
+                          >
+                            <span className={cn(
+                              'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0',
+                              answered && isTheCorrect ? 'bg-green-500 text-white' :
+                              answered && isSelected && !isTheCorrect ? 'bg-red-500 text-white' :
+                              'bg-muted text-muted-foreground'
+                            )}>
+                              {answered && isTheCorrect ? <CheckCircle2 className="h-4 w-4" /> :
+                               answered && isSelected && !isTheCorrect ? <XCircle className="h-4 w-4" /> :
+                               optionLabels[i]}
+                            </span>
+                            <span className="capitalize leading-tight">{option}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {/* Result / Hint */}
+                    <div className="px-4 py-3 border-t border-border">
+                      {answered ? (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className={cn(
+                            'text-xs leading-relaxed rounded-lg px-3 py-2',
+                            isCorrect ? 'bg-green-500/10 text-green-700 dark:text-green-400' : 'bg-red-500/10 text-red-700 dark:text-red-400'
+                          )}
+                        >
+                          <div className="flex items-center gap-1.5 font-semibold mb-0.5">
+                            {isCorrect ? (
+                              <><CheckCircle2 className="h-4 w-4" /> Bonne réponse ! 🎉</>
+                            ) : (
+                              <><XCircle className="h-4 w-4" /> Raté ! La réponse était : <span className="capitalize">{q.correctAnswer}</span></>
+                            )}
+                          </div>
+                          {q.explanation && (
+                            <p className="opacity-80 mt-1">{q.explanation}</p>
+                          )}
+                        </motion.div>
+                      ) : q.hint ? (
+                        <button
+                          onClick={() => setShowAiHints(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Lightbulb className="h-3.5 w-3.5" />
+                          {showAiHints[idx] ? q.hint : 'Voir l\'indice'}
+                        </button>
+                      ) : null}
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </div>
+
+            {/* AI Quiz Summary */}
+            {Object.keys(aiAnswers).length === aiQuestions.length && aiQuestions.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-card border border-border rounded-xl p-6 text-center space-y-4"
+              >
+                <Trophy className="h-12 w-12 mx-auto text-yellow-500" />
+                <h3 className="text-2xl font-bold">Quiz IA Terminé !</h3>
+                <div className="inline-flex items-center gap-4 bg-secondary rounded-lg p-4">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-foreground">{aiScore}/{aiQuestions.length}</p>
+                    <p className="text-xs text-muted-foreground">Bonnes réponses</p>
+                  </div>
+                  <div className="w-px h-10 bg-border" />
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-foreground">
+                      {Math.round((aiScore / aiQuestions.length) * 100)}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">Précision</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+
+        {/* AI Quiz Assistant */}
+        <AIChatPanel
+          agent="quiz"
+          title="🧠 Quiz Master IA"
+          placeholder="Posez vos questions quiz ou demandez un défi..."
+          accentColor="text-amber-500"
+          headerGradient="from-amber-500/20 to-orange-500/20"
+          icon={Brain}
+          onActions={handleAiActions}
+          initialMessage="Génère-moi 3 questions de quiz variées sur les Pokémon pour que l'utilisateur puisse jouer directement. Utilise generate_quiz_question pour chaque question. Mélange les modes (name, type, ability) et les difficultés."
+          quickActions={[
+            { label: '❓ Quiz rapide', message: 'Génère-moi 3 questions de quiz interactif sur les Pokémon avec des choix multiples. Utilise generate_quiz_question pour chaque question. Difficulté facile.' },
+            { label: '🔥 Quiz Types', message: 'Génère-moi 2 questions de quiz sur les types de Pokémon. Mode: type, difficulté: medium.' },
+            { label: '📚 Fun fact', message: 'Donne-moi un fun fact surprenant sur un Pokémon aléatoire.' },
+            { label: '🏆 Défi Expert', message: 'Génère-moi une question de quiz très difficile sur les Pokémon. Mode: ability, difficulté: hard.' },
+          ]}
+        />
       </main>
     </div>
   )

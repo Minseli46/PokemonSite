@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { corsConfig } from './config';
 import pokemonRoutes from './routes/pokemonRoutes';
 import newsRoutes from './routes/news';
+import agentRoutes from './routes/agentRoutes';
 import { errorHandler, notFoundHandler } from './middlewares/errorMiddleware';
 
 // Charge les variables d'environnement
@@ -24,6 +25,7 @@ app.get('/', (_req, res) => {
     endpoints: {
       pokemons: '/api/pokemons',
       news: '/api/news',
+      agent: '/api/agent',
     },
   });
 });
@@ -35,6 +37,7 @@ app.get('/health', (_req, res) => {
 // API Routes
 app.use('/api/pokemons', pokemonRoutes);
 app.use('/api/news', newsRoutes);
+app.use('/api/agent', agentRoutes);
 
 // Gestion des erreurs
 app.use(notFoundHandler);

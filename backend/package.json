@@ -19,6 +19,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@mistralai/mistralai": "^1.14.0",
     "@prisma/client": "^5.22.0",
     "@types/cheerio": "^1.0.0",
     "axios": "^1.6.5",

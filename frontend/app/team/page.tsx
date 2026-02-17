@@ -10,6 +10,7 @@ import { TypeBadge } from '@/components/pokemon/type-badge'
 import { Button } from '@/components/ui/button'
 import { useTeam } from '@/hooks/use-team'
 import { formatPokemonName, formatPokemonId } from '@/lib/pokemon'
+import { AIChatPanel } from '@/components/ai/ai-chat-panel'
 
 export default function TeamPage() {
   const { team, removeFromTeam, clearTeam } = useTeam()
