@@ -420,3 +420,24 @@ if (msgType === 'tool') { /* ToolMessage */ }
 // ❌ Ne fonctionne PAS avec LangGraph
 if (msg instanceof AIMessage) { /* peut échouer */ }
 ```
+
+---
+
+## 👥 Auteurs
+
+- **Minseli Fridel WANKPO** — Développement full-stack, architecture du projet
+- **Kenneth SANGLI** — Système IA Multi-Agent (LangChain/LangGraph), intégration full-stack
+
+---
+
+## 📄 Licence
+
+MIT License - Voir le fichier [LICENSE](../LICENSE) pour plus de détails.
+
+---
+
+## 🙏 Remerciements
+
+- [PokéAPI](https://pokeapi.co/) — Source de données Pokémon
+- [The Pokémon Company](https://www.pokemon.co.jp/) — Propriétaires de la franchise
+- Communauté Open Source pour les librairies utilisées
